@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+.env
+
+# Variables de entorno y secretos
+.env
+.env.*
+*.env
+
+# Bases de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+sync.log
+
+# Identidad de PC (generado por cada máquina)
+.pc_id
+config.ini
+
+# PyQt6
+*.qmlc
+*.jsc
+
+# Cloudflare
+cloudflared/*.json
+.cloudflared/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribución Windows
+*.exe
+*.msi
