@@ -1,0 +1,7 @@
+tunnel: biblioteca
+credentials-file: /root/.cloudflared/biblioteca.json
+
+ingress:
+  - hostname: biblioteca.tu-dominio.com
+    service: http://localhost:8000
+  - service: http_status:404
