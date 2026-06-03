@@ -27,6 +27,14 @@ def registrar_estudiante(est: Estudiante):
     return {"id": nuevo_id, "carnet": est.carnet}
 
 
+@router.get("")
+def listar_estudiantes():
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM estudiantes ORDER BY nombre").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 @router.get("/{carnet}")
 def obtener_estudiante(carnet: str):
     conn = get_connection()

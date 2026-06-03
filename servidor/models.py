@@ -32,6 +32,15 @@ class SyncPayload(BaseModel):
     sesiones: List[Sesion]
 
 
+class EstadoPayload(BaseModel):
+    pc_id: str
+    pc_nombre: Optional[str] = None
+    sesion_activa: bool
+    carnet: Optional[str] = None
+    nombre: Optional[str] = None
+    hora_inicio: Optional[str] = None
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str

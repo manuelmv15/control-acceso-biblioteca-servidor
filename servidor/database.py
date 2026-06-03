@@ -49,6 +49,16 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_sesiones_fecha ON sesiones(fecha);
         CREATE INDEX IF NOT EXISTS idx_sesiones_carnet ON sesiones(carnet);
         CREATE INDEX IF NOT EXISTS idx_sesiones_pc_id ON sesiones(pc_id);
+
+        CREATE TABLE IF NOT EXISTS estado_pcs (
+            pc_id TEXT PRIMARY KEY,
+            pc_nombre TEXT,
+            sesion_activa INTEGER DEFAULT 0,
+            carnet TEXT,
+            nombre TEXT,
+            hora_inicio TEXT,
+            ultima_actualizacion TEXT
+        );
     """)
     conn.commit()
     conn.close()

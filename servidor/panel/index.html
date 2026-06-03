@@ -28,39 +28,81 @@
             </div>
         </header>
 
-        <div class="resumen-bar" id="resumen-bar"></div>
+        <nav class="tabs">
+            <button class="tab active" onclick="cambiarTab('sesiones')">Sesiones</button>
+            <button class="tab" onclick="cambiarTab('pcs')">PCs</button>
+            <button class="tab" onclick="cambiarTab('estudiantes')">Estudiantes</button>
+        </nav>
 
-        <div class="filters">
-            <input type="date" id="filter-fecha" onchange="cargarDatos()">
-            <select id="filter-carrera" onchange="cargarDatos()">
-                <option value="">Todas las carreras</option>
-            </select>
-            <select id="filter-facultad" onchange="cargarDatos()">
-                <option value="">Todas las facultades</option>
-            </select>
-            <select id="filter-pc" onchange="cargarDatos()">
-                <option value="">Todas las PCs</option>
-            </select>
-            <input type="text" id="filter-carnet" placeholder="Buscar carnet..." oninput="filtrarLocal()">
-            <button onclick="exportarCSV()" class="btn-export">Exportar CSV</button>
+        <!-- ── SESIONES ─────────────────────────────────────────── -->
+        <div id="tab-sesiones" class="tab-content">
+            <div class="resumen-bar" id="resumen-bar"></div>
+            <div class="filters">
+                <input type="date" id="filter-fecha" onchange="cargarDatos()">
+                <select id="filter-carrera" onchange="cargarDatos()">
+                    <option value="">Todas las carreras</option>
+                </select>
+                <select id="filter-facultad" onchange="cargarDatos()">
+                    <option value="">Todas las facultades</option>
+                </select>
+                <select id="filter-pc" onchange="cargarDatos()">
+                    <option value="">Todas las PCs</option>
+                </select>
+                <input type="text" id="filter-carnet" placeholder="Buscar carnet..." oninput="filtrarLocal()">
+                <button onclick="exportarCSV()" class="btn-export">Exportar CSV</button>
+            </div>
+            <div class="table-wrap">
+                <table id="tabla-sesiones">
+                    <thead>
+                        <tr>
+                            <th>Carnet</th>
+                            <th>Nombre</th>
+                            <th>Carrera</th>
+                            <th>PC</th>
+                            <th>Hora inicio</th>
+                            <th>Hora fin</th>
+                            <th>Duración</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-body"></tbody>
+                </table>
+                <p id="no-data" class="hidden">Sin registros para los filtros seleccionados.</p>
+            </div>
         </div>
 
-        <div class="table-wrap">
-            <table id="tabla-sesiones">
-                <thead>
-                    <tr>
-                        <th>Carnet</th>
-                        <th>Nombre</th>
-                        <th>Carrera</th>
-                        <th>PC</th>
-                        <th>Hora inicio</th>
-                        <th>Hora fin</th>
-                        <th>Duración</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-body"></tbody>
-            </table>
-            <p id="no-data" class="hidden">Sin registros para los filtros seleccionados.</p>
+        <!-- ── PCs ──────────────────────────────────────────────── -->
+        <div id="tab-pcs" class="tab-content hidden">
+            <div class="tab-toolbar">
+                <span class="tab-title">Estado de PCs</span>
+                <button onclick="cargarEstadoPCs()" class="btn-refresh">Actualizar</button>
+            </div>
+            <div id="pcs-grid" class="pcs-grid"></div>
+            <p id="no-pcs" class="hidden">No hay PCs registradas.</p>
+        </div>
+
+        <!-- ── ESTUDIANTES ───────────────────────────────────────── -->
+        <div id="tab-estudiantes" class="tab-content hidden">
+            <div class="tab-toolbar">
+                <span class="tab-title">Estudiantes registrados</span>
+                <input type="text" id="filter-est" placeholder="Buscar nombre o carnet..." oninput="filtrarEstudiantes()">
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Carnet</th>
+                            <th>Nombre</th>
+                            <th>Carrera</th>
+                            <th>Facultad</th>
+                            <th>Departamento</th>
+                            <th>Sexo</th>
+                            <th>Registro</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-est-body"></tbody>
+                </table>
+                <p id="no-est" class="hidden">Sin estudiantes registrados.</p>
+            </div>
         </div>
     </div>
 
