@@ -1,0 +1,28 @@
+<div class="resumen-bar" id="resumen-bar"></div>
+
+<div class="filters">
+    <input type="date" id="filter-fecha">
+    <select id="filter-carrera"><option value="">Todas las carreras</option></select>
+    <select id="filter-facultad"><option value="">Todas las facultades</option></select>
+    <select id="filter-pc"><option value="">Todas las PCs</option></select>
+    <input type="text" id="filter-carnet" placeholder="Buscar carnet o nombre...">
+    <button id="btn-export" class="btn-export">Exportar CSV</button>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Carnet</th>
+                <th>Nombre</th>
+                <th>Carrera</th>
+                <th>PC</th>
+                <th>Hora inicio</th>
+                <th>Hora fin</th>
+                <th>Duración</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-body"></tbody>
+    </table>
+    <p id="no-data" class="empty-msg hidden">Sin registros para los filtros seleccionados.</p>
+</div>

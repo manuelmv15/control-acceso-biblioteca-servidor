@@ -1,6 +1,8 @@
 services:
   servidor:
     build: ./servidor
+    ports:
+      - "8000:8000"
     volumes:
       - db_data:/app/data
     environment:
