@@ -255,10 +255,13 @@ tbody tr:hover { background: var(--bg-principal); }
 tbody tr:last-child td { border-bottom: none; }
 
 .badge-en-sesion {
-    background: #fff3cd; color: #856404;
+    background: #d4edda; color: #155724;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 600;
 }
+
+.fila-activa { background: #f6fff8; }
+.dur-activa { color: var(--color-activo); font-weight: 600; }
 
 .empty-msg { text-align: center; color: var(--texto-secundario); padding: 2.5rem; }
 

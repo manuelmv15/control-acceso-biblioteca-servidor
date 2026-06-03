@@ -25,9 +25,14 @@ def recibir_sync(payload: SyncPayload, request: Request):
     insertados = 0
     for s in payload.sesiones:
         cursor.execute("""
-            INSERT OR IGNORE INTO sesiones
+            INSERT INTO sesiones
                 (id, pc_id, carnet, hora_inicio, hora_fin, fecha, sincronizado, timestamp_sync)
             VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                hora_fin       = excluded.hora_fin,
+                sincronizado   = 1,
+                timestamp_sync = excluded.timestamp_sync
+            WHERE excluded.hora_fin IS NOT NULL
         """, (s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha, ahora))
         insertados += cursor.rowcount
 

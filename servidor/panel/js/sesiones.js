@@ -1,5 +1,6 @@
 const Sesiones = {
     datos: [],
+    _ticker: null,
 
     async cargar() {
         const fecha    = document.getElementById('filter-fecha')?.value   || '';
@@ -54,6 +55,14 @@ const Sesiones = {
         a.click();
     },
 
+    _elapsed(hora_inicio) {
+        const start = new Date(hora_inicio.replace(' ', 'T') + (hora_inicio.includes('T') ? '' : 'Z'));
+        const diff = Math.floor((Date.now() - start) / 60000);
+        if (diff < 0) return null;
+        const h = Math.floor(diff / 60), m = diff % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    },
+
     _renderTabla(datos) {
         const tbody = document.getElementById('tabla-body');
         const noData = document.getElementById('no-data');
@@ -61,19 +70,38 @@ const Sesiones = {
         tbody.innerHTML = '';
         noData?.classList.toggle('hidden', datos.length > 0);
         datos.forEach(s => {
-            const dur = s.minutos != null ? `${Math.floor(s.minutos/60)}h ${s.minutos%60}m` : '—';
+            const activa = !s.hora_fin;
+            let dur;
+            if (s.minutos != null) {
+                dur = `${Math.floor(s.minutos/60)}h ${s.minutos%60}m`;
+            } else if (activa) {
+                dur = this._elapsed(s.hora_inicio) ?? '—';
+            } else {
+                dur = '—';
+            }
             const tr = document.createElement('tr');
+            if (activa) tr.classList.add('fila-activa');
             tr.innerHTML = `
                 <td>${s.carnet}</td>
                 <td>${s.nombre||'—'}</td>
                 <td>${s.carrera||'—'}</td>
                 <td>${s.pc_id}</td>
                 <td>${fmtHora(s.hora_inicio)}</td>
-                <td>${s.hora_fin ? fmtHora(s.hora_fin) : '<span class="badge-en-sesion">En sesión</span>'}</td>
-                <td>${dur}</td>
+                <td>${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>
+                <td ${activa ? `class="dur-activa" data-hora-inicio="${s.hora_inicio}"` : ''}>${dur}</td>
             `;
             tbody.appendChild(tr);
         });
+        this._iniciarTicker();
+    },
+
+    _iniciarTicker() {
+        clearInterval(this._ticker);
+        this._ticker = setInterval(() => {
+            document.querySelectorAll('td.dur-activa[data-hora-inicio]').forEach(td => {
+                td.textContent = this._elapsed(td.dataset.horaInicio) ?? '—';
+            });
+        }, 60000);
     },
 
     _renderResumen(r) {
