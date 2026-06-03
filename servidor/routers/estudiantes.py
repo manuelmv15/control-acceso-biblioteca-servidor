@@ -43,3 +43,32 @@ def obtener_estudiante(carnet: str):
     if not row:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     return dict(row)
+
+
+@router.put("/{carnet}")
+def actualizar_estudiante(carnet: str, est: Estudiante):
+    conn = get_connection()
+    existe = conn.execute("SELECT id FROM estudiantes WHERE carnet = ?", (carnet,)).fetchone()
+    if not existe:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    conn.execute("""
+        UPDATE estudiantes
+        SET nombre=?, fecha_nacimiento=?, carrera=?, departamento=?, facultad=?, sexo=?
+        WHERE carnet=?
+    """, (est.nombre, est.fecha_nacimiento, est.carrera, est.departamento, est.facultad, est.sexo, carnet))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "carnet": carnet}
+
+
+@router.delete("/{carnet}", status_code=204)
+def eliminar_estudiante(carnet: str):
+    conn = get_connection()
+    existe = conn.execute("SELECT id FROM estudiantes WHERE carnet = ?", (carnet,)).fetchone()
+    if not existe:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    conn.execute("DELETE FROM estudiantes WHERE carnet = ?", (carnet,))
+    conn.commit()
+    conn.close()

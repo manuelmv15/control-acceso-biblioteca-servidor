@@ -15,40 +15,67 @@ def listar_sesiones(
     limit: int = Query(500, le=5000),
     offset: int = Query(0, ge=0),
 ):
-    where = []
-    params = []
+    target_date = fecha or date.today().isoformat()
 
-    if fecha:
-        where.append("s.fecha = ?")
-        params.append(fecha)
-    else:
-        where.append("s.fecha = ?")
-        params.append(date.today().isoformat())
-
+    where_s = ["s.fecha = ?"]
+    params_s = [target_date]
     if pc_id:
-        where.append("s.pc_id = ?")
-        params.append(pc_id)
+        where_s.append("s.pc_id = ?")
+        params_s.append(pc_id)
     if carnet:
-        where.append("s.carnet = ?")
-        params.append(carnet)
+        where_s.append("s.carnet = ?")
+        params_s.append(carnet)
     if carrera:
-        where.append("e.carrera = ?")
-        params.append(carrera)
+        where_s.append("e.carrera = ?")
+        params_s.append(carrera)
+    where_sql = "WHERE " + " AND ".join(where_s)
 
-    where_sql = "WHERE " + " AND ".join(where) if where else ""
-    params += [limit, offset]
+    where_e = [
+        "ep.sesion_activa = 1",
+        "ep.carnet IS NOT NULL",
+        "ep.hora_inicio IS NOT NULL",
+        "date(ep.hora_inicio) = ?",
+        "NOT EXISTS (SELECT 1 FROM sesiones sx WHERE sx.pc_id = ep.pc_id AND sx.hora_inicio = ep.hora_inicio AND sx.hora_fin IS NULL)",
+    ]
+    params_e = [target_date]
+    if pc_id:
+        where_e.append("ep.pc_id = ?")
+        params_e.append(pc_id)
+    if carnet:
+        where_e.append("ep.carnet = ?")
+        params_e.append(carnet)
+    where_estado_sql = "WHERE " + " AND ".join(where_e)
+
+    all_params = params_s + params_e + [limit, offset]
 
     conn = get_connection()
     rows = conn.execute(f"""
         SELECT s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha,
                e.nombre, e.carrera, e.facultad,
-               ROUND((JULIANDAY(COALESCE(s.hora_fin, datetime('now'))) - JULIANDAY(s.hora_inicio)) * 1440) AS minutos
+               ROUND((JULIANDAY(COALESCE(s.hora_fin, datetime('now', 'localtime'))) - JULIANDAY(s.hora_inicio)) * 1440) AS minutos
         FROM sesiones s
         LEFT JOIN estudiantes e ON e.carnet = s.carnet
         {where_sql}
-        ORDER BY s.hora_inicio DESC
+
+        UNION ALL
+
+        SELECT
+            ep.pc_id || '_' || ep.hora_inicio AS id,
+            ep.pc_id,
+            ep.carnet,
+            ep.hora_inicio,
+            NULL AS hora_fin,
+            date(ep.hora_inicio) AS fecha,
+            ep.nombre,
+            NULL AS carrera,
+            NULL AS facultad,
+            ROUND((JULIANDAY(datetime('now', 'localtime')) - JULIANDAY(ep.hora_inicio)) * 1440) AS minutos
+        FROM estado_pcs ep
+        {where_estado_sql}
+
+        ORDER BY hora_inicio DESC
         LIMIT ? OFFSET ?
-    """, params).fetchall()
+    """, all_params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -59,7 +86,7 @@ def pcs_activas():
     rows = conn.execute("""
         SELECT pc_id, nombre, ultima_conexion, ip_reportada
         FROM pcs
-        WHERE ultima_conexion >= datetime('now', '-5 minutes')
+        WHERE ultima_conexion >= datetime('now', 'localtime', '-5 minutes')
         ORDER BY nombre
     """).fetchall()
     conn.close()
@@ -75,8 +102,18 @@ def resumen_dia(fecha: Optional[str] = Query(None)):
             COUNT(*) AS total_sesiones,
             COUNT(DISTINCT carnet) AS estudiantes_unicos,
             COUNT(DISTINCT pc_id) AS pcs_usadas,
-            ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, datetime('now'))) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
-        FROM sesiones WHERE fecha = ?
-    """, (target,)).fetchone()
+            ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, datetime('now', 'localtime'))) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
+        FROM (
+            SELECT carnet, pc_id, hora_inicio, hora_fin FROM sesiones WHERE fecha = ?
+            UNION ALL
+            SELECT carnet, pc_id, hora_inicio, NULL AS hora_fin
+            FROM estado_pcs
+            WHERE sesion_activa = 1 AND carnet IS NOT NULL AND hora_inicio IS NOT NULL
+              AND date(hora_inicio) = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM sesiones sx WHERE sx.pc_id = estado_pcs.pc_id AND sx.hora_inicio = estado_pcs.hora_inicio AND sx.hora_fin IS NULL
+              )
+        )
+    """, (target, target)).fetchone()
     conn.close()
     return dict(row)

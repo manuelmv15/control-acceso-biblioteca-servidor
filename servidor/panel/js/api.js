@@ -13,6 +13,21 @@ const API = {
         return res.json();
     },
 
+    async fetchRaw(url, { method = 'GET', body } = {}) {
+        const opts = {
+            method,
+            headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (res.status === 401) { App.logout(); throw new Error('Sesión expirada'); }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `Error ${res.status}`);
+        }
+        return res.status === 204 ? null : res.json();
+    },
+
     async login(username, password) {
         const res = await fetch('/auth/login', {
             method: 'POST',

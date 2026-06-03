@@ -56,7 +56,7 @@ const Sesiones = {
     },
 
     _elapsed(hora_inicio) {
-        const start = new Date(hora_inicio.replace(' ', 'T') + (hora_inicio.includes('T') ? '' : 'Z'));
+        const start = new Date(hora_inicio.replace(' ', 'T'));
         const diff = Math.floor((Date.now() - start) / 60000);
         if (diff < 0) return null;
         const h = Math.floor(diff / 60), m = diff % 60;

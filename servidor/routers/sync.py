@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from fastapi import APIRouter, Request
 from database import get_connection
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 def recibir_sync(payload: SyncPayload, request: Request):
     conn = get_connection()
     cursor = conn.cursor()
-    ahora = datetime.utcnow().isoformat()
+    ahora = datetime.now().isoformat()
     ip = request.client.host if request.client else payload.ip
 
     cursor.execute("""
@@ -23,6 +24,7 @@ def recibir_sync(payload: SyncPayload, request: Request):
     """, (payload.pc_id, payload.pc_nombre, ahora, ip))
 
     insertados = 0
+    fecha_hoy = datetime.now().date().isoformat()
     for s in payload.sesiones:
         cursor.execute("""
             INSERT INTO sesiones
@@ -35,6 +37,21 @@ def recibir_sync(payload: SyncPayload, request: Request):
             WHERE excluded.hora_fin IS NOT NULL
         """, (s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha, ahora))
         insertados += cursor.rowcount
+
+        if s.nombre and s.carnet:
+            cursor.execute("""
+                INSERT INTO estudiantes (id, nombre, carnet, carrera, facultad, departamento, sexo, fecha_nacimiento, fecha_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(carnet) DO UPDATE SET
+                    nombre       = excluded.nombre,
+                    carrera      = COALESCE(excluded.carrera,      estudiantes.carrera),
+                    facultad     = COALESCE(excluded.facultad,     estudiantes.facultad),
+                    departamento = COALESCE(excluded.departamento, estudiantes.departamento),
+                    sexo         = COALESCE(excluded.sexo,         estudiantes.sexo),
+                    fecha_nacimiento = COALESCE(excluded.fecha_nacimiento, estudiantes.fecha_nacimiento)
+            """, (str(uuid.uuid4()), s.nombre, s.carnet,
+                  s.carrera, s.facultad, s.departamento,
+                  s.sexo, s.fecha_nacimiento, fecha_hoy))
 
     conn.commit()
     conn.close()

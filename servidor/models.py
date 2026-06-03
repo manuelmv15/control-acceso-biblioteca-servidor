@@ -23,6 +23,12 @@ class Sesion(BaseModel):
     fecha: str
     sincronizado: Optional[int] = 0
     timestamp_sync: Optional[str] = None
+    nombre: Optional[str] = None
+    carrera: Optional[str] = None
+    facultad: Optional[str] = None
+    departamento: Optional[str] = None
+    sexo: Optional[str] = None
+    fecha_nacimiento: Optional[str] = None
 
 
 class SyncPayload(BaseModel):
@@ -39,6 +45,11 @@ class EstadoPayload(BaseModel):
     carnet: Optional[str] = None
     nombre: Optional[str] = None
     hora_inicio: Optional[str] = None
+    carrera: Optional[str] = None
+    facultad: Optional[str] = None
+    departamento: Optional[str] = None
+    sexo: Optional[str] = None
+    fecha_nacimiento: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

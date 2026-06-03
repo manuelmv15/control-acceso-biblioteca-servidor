@@ -1,6 +1,7 @@
 <div class="tab-toolbar">
     <span class="tab-title">Estudiantes registrados</span>
     <input type="text" id="filter-est" placeholder="Buscar nombre, carnet o carrera...">
+    <button id="btn-nuevo-est" class="btn-danger">+ Nuevo estudiante</button>
 </div>
 
 <div class="table-wrap">
@@ -14,9 +15,49 @@
                 <th>Departamento</th>
                 <th>Sexo</th>
                 <th>Registro</th>
+                <th></th>
             </tr>
         </thead>
         <tbody id="tabla-est-body"></tbody>
     </table>
     <p id="no-est" class="empty-msg hidden">Sin estudiantes registrados.</p>
+</div>
+
+<!-- Modal -->
+<div id="modal-est" class="modal-overlay hidden">
+    <div class="modal-box">
+        <h3 id="modal-est-titulo">Nuevo estudiante</h3>
+        <div class="modal-form">
+            <label>Carnet *
+                <input type="text" id="est-carnet" placeholder="mv23036">
+            </label>
+            <label>Nombre *
+                <input type="text" id="est-nombre" placeholder="Nombre completo">
+            </label>
+            <label>Carrera
+                <input type="text" id="est-carrera" placeholder="Ingeniería en Sistemas">
+            </label>
+            <label>Facultad
+                <input type="text" id="est-facultad" placeholder="Ingeniería y Arquitectura">
+            </label>
+            <label>Departamento
+                <input type="text" id="est-departamento" placeholder="Ciencias de la Computación">
+            </label>
+            <label>Fecha de nacimiento
+                <input type="date" id="est-fecha-nac">
+            </label>
+            <label>Sexo
+                <select id="est-sexo">
+                    <option value="">— Seleccionar —</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                </select>
+            </label>
+        </div>
+        <p id="modal-est-error" class="error"></p>
+        <div class="modal-actions">
+            <button id="btn-est-guardar" class="btn-danger">Guardar</button>
+            <button id="btn-est-cancelar" class="btn-secondary">Cancelar</button>
+        </div>
+    </div>
 </div>
