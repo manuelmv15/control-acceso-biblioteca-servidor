@@ -60,9 +60,10 @@ const App = {
             console.error('No se pudo cargar la vista:', tab, e);
             return;
         }
-        if (tab === 'sesiones')    Sesiones.init();
-        if (tab === 'pcs')         PCs.init();
-        if (tab === 'estudiantes') Estudiantes.init();
+        if (tab === 'sesiones')     Sesiones.init();
+        if (tab === 'pcs')          PCs.init();
+        if (tab === 'estudiantes')  Estudiantes.init();
+        if (tab === 'estadisticas') Estadisticas.init();
     }
 };
 

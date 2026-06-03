@@ -2,7 +2,7 @@ services:
   servidor:
     build: ./servidor
     ports:
-      - "8000:8000"
+      - "8000"
     volumes:
       - db_data:/app/data
     environment:
@@ -13,13 +13,6 @@ services:
       - TZ=America/El_Salvador
     restart: unless-stopped
 
-  sqlite-web:
-    image: coleifer/sqlite-web
-    ports:
-      - "8080:8080"
-    volumes:
-      - db_data:/data
-    command: sqlite_web -H 0.0.0.0 -p 8080 /data/biblioteca.db
 
   cloudflared:
     image: cloudflare/cloudflared:latest

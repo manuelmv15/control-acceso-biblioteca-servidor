@@ -1,0 +1,47 @@
+<div class="est-controls">
+    <div class="est-quick-btns">
+        <button class="est-quick active" data-dias="7">7 días</button>
+        <button class="est-quick" data-dias="30">30 días</button>
+        <button class="est-quick" data-dias="90">90 días</button>
+        <button class="est-quick" data-dias="365">1 año</button>
+    </div>
+    <div class="est-range">
+        <label>Desde <input type="date" id="est-desde"></label>
+        <label>Hasta <input type="date" id="est-hasta"></label>
+        <button id="est-btn-aplicar" class="btn-export">Aplicar</button>
+    </div>
+</div>
+
+<div id="est-resumen-cards" class="est-cards"></div>
+
+<div class="est-grid">
+    <div class="est-chart-card est-wide">
+        <div class="est-chart-title">Sesiones por día</div>
+        <div class="est-chart-wrap"><canvas id="chart-por-dia"></canvas></div>
+    </div>
+
+    <div class="est-chart-card">
+        <div class="est-chart-title">Distribución por hora</div>
+        <div class="est-chart-wrap"><canvas id="chart-por-hora"></canvas></div>
+    </div>
+
+    <div class="est-chart-card">
+        <div class="est-chart-title">Por sexo</div>
+        <div class="est-chart-wrap est-doughnut-wrap"><canvas id="chart-por-sexo"></canvas></div>
+    </div>
+
+    <div class="est-chart-card est-wide">
+        <div class="est-chart-title">Top carreras</div>
+        <div class="est-chart-wrap est-hbar-wrap"><canvas id="chart-por-carrera"></canvas></div>
+    </div>
+
+    <div class="est-chart-card">
+        <div class="est-chart-title">Por facultad</div>
+        <div class="est-chart-wrap est-hbar-wrap"><canvas id="chart-por-facultad"></canvas></div>
+    </div>
+
+    <div class="est-chart-card">
+        <div class="est-chart-title">Uso por PC</div>
+        <div class="est-chart-wrap est-hbar-wrap"><canvas id="chart-por-pc"></canvas></div>
+    </div>
+</div>

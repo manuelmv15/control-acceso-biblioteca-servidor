@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from fastapi import APIRouter, Query
 from database import get_connection
@@ -118,3 +118,88 @@ def resumen_dia(fecha: Optional[str] = Query(None)):
     """, (target, target)).fetchone()
     conn.close()
     return dict(row)
+
+
+@router.get("/estadisticas")
+def estadisticas(
+    desde: Optional[str] = Query(None),
+    hasta: Optional[str] = Query(None),
+):
+    hasta_date = hasta or date.today().isoformat()
+    desde_date = desde or (date.today() - timedelta(days=29)).isoformat()
+
+    conn = get_connection()
+
+    por_dia = conn.execute("""
+        SELECT fecha,
+               COUNT(*) AS sesiones,
+               COUNT(DISTINCT carnet) AS estudiantes,
+               ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, hora_inicio)) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
+        FROM sesiones
+        WHERE fecha BETWEEN ? AND ?
+        GROUP BY fecha ORDER BY fecha
+    """, (desde_date, hasta_date)).fetchall()
+
+    por_hora = conn.execute("""
+        SELECT CAST(strftime('%H', hora_inicio, 'localtime') AS INTEGER) AS hora,
+               COUNT(*) AS sesiones
+        FROM sesiones
+        WHERE fecha BETWEEN ? AND ?
+        GROUP BY hora ORDER BY hora
+    """, (desde_date, hasta_date)).fetchall()
+
+    por_carrera = conn.execute("""
+        SELECT COALESCE(e.carrera, 'Sin carrera') AS carrera,
+               COUNT(*) AS sesiones,
+               COUNT(DISTINCT s.carnet) AS estudiantes
+        FROM sesiones s LEFT JOIN estudiantes e ON e.carnet = s.carnet
+        WHERE s.fecha BETWEEN ? AND ?
+        GROUP BY carrera ORDER BY sesiones DESC LIMIT 15
+    """, (desde_date, hasta_date)).fetchall()
+
+    por_facultad = conn.execute("""
+        SELECT COALESCE(e.facultad, 'Sin facultad') AS facultad,
+               COUNT(*) AS sesiones,
+               COUNT(DISTINCT s.carnet) AS estudiantes
+        FROM sesiones s LEFT JOIN estudiantes e ON e.carnet = s.carnet
+        WHERE s.fecha BETWEEN ? AND ?
+        GROUP BY facultad ORDER BY sesiones DESC
+    """, (desde_date, hasta_date)).fetchall()
+
+    por_sexo = conn.execute("""
+        SELECT COALESCE(e.sexo, 'No especificado') AS sexo,
+               COUNT(*) AS sesiones
+        FROM sesiones s LEFT JOIN estudiantes e ON e.carnet = s.carnet
+        WHERE s.fecha BETWEEN ? AND ?
+        GROUP BY sexo ORDER BY sesiones DESC
+    """, (desde_date, hasta_date)).fetchall()
+
+    por_pc = conn.execute("""
+        SELECT pc_id, COUNT(*) AS sesiones, COUNT(DISTINCT carnet) AS estudiantes
+        FROM sesiones
+        WHERE fecha BETWEEN ? AND ?
+        GROUP BY pc_id ORDER BY sesiones DESC
+    """, (desde_date, hasta_date)).fetchall()
+
+    totales = conn.execute("""
+        SELECT COUNT(*) AS total_sesiones,
+               COUNT(DISTINCT carnet) AS total_estudiantes,
+               COALESCE(SUM(ROUND((JULIANDAY(COALESCE(hora_fin, hora_inicio)) - JULIANDAY(hora_inicio)) * 1440)), 0) AS total_minutos,
+               ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, hora_inicio)) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
+        FROM sesiones
+        WHERE fecha BETWEEN ? AND ?
+    """, (desde_date, hasta_date)).fetchone()
+
+    conn.close()
+
+    return {
+        "desde": desde_date,
+        "hasta": hasta_date,
+        "totales": dict(totales),
+        "por_dia": [dict(r) for r in por_dia],
+        "por_hora": [dict(r) for r in por_hora],
+        "por_carrera": [dict(r) for r in por_carrera],
+        "por_facultad": [dict(r) for r in por_facultad],
+        "por_sexo": [dict(r) for r in por_sexo],
+        "por_pc": [dict(r) for r in por_pc],
+    }
