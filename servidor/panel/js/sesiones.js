@@ -1,6 +1,7 @@
 const Sesiones = {
     datos: [],
     _ticker: null,
+    _autoRefresh: null,
 
     async cargar() {
         const fecha    = document.getElementById('filter-fecha')?.value   || '';
@@ -104,6 +105,11 @@ const Sesiones = {
         }, 60000);
     },
 
+    _iniciarAutoRefresh() {
+        clearInterval(this._autoRefresh);
+        this._autoRefresh = setInterval(() => this.cargar(), 30000);
+    },
+
     _renderResumen(r) {
         const bar = document.getElementById('resumen-bar');
         if (!bar) return;
@@ -140,5 +146,6 @@ const Sesiones = {
         document.getElementById('btn-export')?.addEventListener('click', () => this.exportarCSV());
 
         this.cargar();
+        this._iniciarAutoRefresh();
     }
 };
