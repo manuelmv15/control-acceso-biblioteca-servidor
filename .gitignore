@@ -19,6 +19,7 @@ env/
 .env
 .env.*
 *.env
+!.env.example
 
 # Bases de datos
 *.db

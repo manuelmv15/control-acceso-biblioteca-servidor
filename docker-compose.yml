@@ -1,0 +1,21 @@
+services:
+  servidor:
+    build: ./servidor
+    volumes:
+      - db_data:/app/data
+    environment:
+      - DB_PATH=/app/data/biblioteca.db
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS}
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - servidor
+    restart: unless-stopped
+
+volumes:
+  db_data:
