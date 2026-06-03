@@ -52,7 +52,7 @@ def listar_sesiones(
     rows = conn.execute(f"""
         SELECT s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha,
                e.nombre, e.carrera, e.facultad,
-               ROUND((JULIANDAY(COALESCE(s.hora_fin, datetime('now', 'localtime'))) - JULIANDAY(s.hora_inicio)) * 1440) AS minutos
+               ROUND((JULIANDAY(COALESCE(s.hora_fin, datetime('now'))) - JULIANDAY(s.hora_inicio)) * 1440) AS minutos
         FROM sesiones s
         LEFT JOIN estudiantes e ON e.carnet = s.carnet
         {where_sql}
@@ -67,10 +67,11 @@ def listar_sesiones(
             NULL AS hora_fin,
             date(ep.hora_inicio) AS fecha,
             ep.nombre,
-            NULL AS carrera,
-            NULL AS facultad,
-            ROUND((JULIANDAY(datetime('now', 'localtime')) - JULIANDAY(ep.hora_inicio)) * 1440) AS minutos
+            e2.carrera,
+            e2.facultad,
+            ROUND((JULIANDAY(datetime('now')) - JULIANDAY(ep.hora_inicio)) * 1440) AS minutos
         FROM estado_pcs ep
+        LEFT JOIN estudiantes e2 ON e2.carnet = ep.carnet
         {where_estado_sql}
 
         ORDER BY hora_inicio DESC
@@ -102,7 +103,7 @@ def resumen_dia(fecha: Optional[str] = Query(None)):
             COUNT(*) AS total_sesiones,
             COUNT(DISTINCT carnet) AS estudiantes_unicos,
             COUNT(DISTINCT pc_id) AS pcs_usadas,
-            ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, datetime('now', 'localtime'))) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
+            ROUND(AVG(ROUND((JULIANDAY(COALESCE(hora_fin, datetime('now'))) - JULIANDAY(hora_inicio)) * 1440))) AS minutos_promedio
         FROM (
             SELECT carnet, pc_id, hora_inicio, hora_fin FROM sesiones WHERE fecha = ?
             UNION ALL
