@@ -57,3 +57,5 @@ desktop.ini
 # Distribución Windows
 *.exe
 *.msi
+
+docs/

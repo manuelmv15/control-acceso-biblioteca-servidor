@@ -14,12 +14,5 @@ services:
     restart: unless-stopped
 
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - servidor
-    restart: unless-stopped
-
 volumes:
   db_data:

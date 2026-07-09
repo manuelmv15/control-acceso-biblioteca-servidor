@@ -1,167 +1,139 @@
 # Guía del Servidor — Biblioteca Horas Sociales
 
+El servidor corre exclusivamente sobre **Docker Compose**. No hay soporte para
+instalación nativa (venv, systemd, etc.) — todo el ciclo de vida se maneja
+con `docker compose`.
+
+---
+
 ## Requisitos
 
+- Docker
+- Docker Compose (plugin `docker compose` o `docker-compose`)
+
+---
+
+## Configuración
+
+Copiar el archivo de ejemplo y completar los valores:
+
 ```bash
-pip install -r requirements.txt
+cp .env.example .env
 ```
+
+| Variable | Descripción |
+| --- | --- |
+| `SECRET_KEY` | Clave JWT — usar una cadena larga y aleatoria |
+| `ADMIN_USER` | Usuario del panel |
+| `ADMIN_PASS` | Contraseña del panel |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Token del túnel de Cloudflare (ver abajo) |
+
+`.env` está en `.gitignore` — nunca se commitea.
 
 ---
 
 ## Levantar el servidor
 
-### Desarrollo (con auto-reload)
+Desde la raíz del repo (donde está `docker-compose.yml`):
 
 ```bash
-cd servidor/
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+docker compose up -d --build
 ```
 
-### Producción (sin reload)
+Esto levanta dos contenedores:
 
-```bash
-cd servidor/
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
+- `servidor`: la API FastAPI (puerto interno 8000)
+- `cloudflared`: túnel hacia internet usando `CLOUDFLARE_TUNNEL_TOKEN`
 
-### Con credenciales personalizadas
+**URLs (dentro de la red del servidor o vía el hostname configurado en el
+túnel):**
 
-```bash
-ADMIN_USER=admin ADMIN_PASS=mi_password SECRET_KEY=clave_segura \
-  python -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
+- API: `http://<host>:8000`
+- Docs interactivos: `http://<host>:8000/docs`
+- Panel: `http://<host>:8000/panel`
 
-**URLs:**
-
-- API: <http://localhost:8000>
-- Docs interactivos: <http://localhost:8000/docs>
-- Panel (si existe): <http://localhost:8000/panel>
+El puerto se publica sin fijar el puerto de host (`"8000"` en
+`docker-compose.yml`), así que Docker asigna uno dinámico. Para exponerlo en
+un puerto fijo del host, cambiar a `"8000:8000"` en `docker-compose.yml`.
 
 ---
 
-## Matar el servidor
-
-### Si corre en terminal (foreground)
-
-`Ctrl+C`
-
-### Si corre en background
+## Logs
 
 ```bash
-# encontrar PID
-lsof -i :8000
-
-# matar
-kill <PID>
-
-# o matar todo lo que usa el puerto 8000
-kill $(lsof -t -i:8000)
+docker compose logs -f servidor
+docker compose logs -f cloudflared
 ```
 
 ---
 
-## Restart
+## Detener / reiniciar
 
 ```bash
-# matar
-kill $(lsof -t -i:8000)
-
-# esperar un momento y levantar de nuevo
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+docker compose stop        # detener
+docker compose restart     # reiniciar
+docker compose down        # detener y eliminar contenedores (conserva el volumen db_data)
 ```
 
 ---
 
-## Instalar como servicio systemd (Linux — producción)
-
-Instala el servidor para que arranque automáticamente con el sistema.
+## Actualizar tras cambios de código
 
 ```bash
-sudo bash instalar_servicio.sh
-```
-
-### Controlar el servicio
-
-```bash
-sudo systemctl start biblioteca      # levantar
-sudo systemctl stop biblioteca       # apagar
-sudo systemctl restart biblioteca    # restart
-sudo systemctl status biblioteca     # ver estado y logs recientes
-```
-
-### Ver logs en tiempo real
-
-```bash
-journalctl -u biblioteca -f
-```
-
-### Cambiar credenciales en producción
-
-Editar `/etc/systemd/system/biblioteca.service` y agregar/modificar:
-
-```ini
-Environment=ADMIN_USER=admin
-Environment=ADMIN_PASS=password_seguro
-Environment=SECRET_KEY=clave_muy_larga_y_aleatoria
-```
-
-Luego:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart biblioteca
+docker compose up -d --build
 ```
 
 ---
 
-## Variables de entorno
+## Base de datos
 
-| Variable | Default | Descripción |
-| ---------- | --------- | ------------- |
-| `ADMIN_USER` | `admin` | Usuario del panel |
-| `ADMIN_PASS` | `biblioteca2024` | Contraseña del panel |
-| `SECRET_KEY` | `biblioteca-secret-key-change-in-production` | Clave JWT — **cambiar en producción** |
-| `DB_PATH` | `biblioteca.db` | Ruta de la base de datos SQLite |
+SQLite, persistida en el volumen nombrado `db_data` (ruta dentro del
+contenedor: `/app/data/biblioteca.db`, definida por `DB_PATH`).
 
----
+Tablas: `estudiantes`, `pcs`, `sesiones`.
 
-## Credenciales por defecto
-
-``` txt
-Usuario: admin
-Contraseña: biblioteca2024
-```
-
-Endpoint de login:
+### Backup
 
 ```bash
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "biblioteca2024"}'
+docker compose exec servidor cp /app/data/biblioteca.db /app/data/biblioteca.db.bak
+docker cp $(docker compose ps -q servidor):/app/data/biblioteca.db.bak ./biblioteca.db.bak
+```
+
+### Inspeccionar el volumen
+
+```bash
+docker volume inspect bliblioteca_db_data
 ```
 
 ---
 
 ## Túnel Cloudflare (acceso externo)
 
-Para exponer el servidor a internet:
+El túnel corre como contenedor (`cloudflared`) usando autenticación por
+token, no requiere `cloudflared` instalado en el host ni archivos de
+configuración locales.
 
-```bash
-bash setup_tunnel.sh
-```
-
-Requiere cuenta de Cloudflare. Abrirá el navegador para autenticación.
+1. Crear el túnel desde el dashboard de Cloudflare Zero Trust
+   (Networks → Tunnels → Create a tunnel → Docker).
+2. Copiar el token generado a `CLOUDFLARE_TUNNEL_TOKEN` en `.env`.
+3. Configurar el hostname público y la ruta al servicio interno
+   (`http://servidor:8000`) desde el mismo dashboard — el enrutamiento se
+   gestiona en Cloudflare, no en un archivo local.
+4. `docker compose up -d` levanta el túnel automáticamente.
 
 ---
 
-## Base de datos
+## Credenciales
 
-SQLite en `biblioteca.db` (mismo directorio donde se ejecuta el servidor).
+Definidas por `ADMIN_USER` / `ADMIN_PASS` en `.env`. Si no se definen, el
+código cae en defaults inseguros (`admin` / `biblioteca2024`,
+`SECRET_KEY` de ejemplo) — **siempre** completar `.env` antes de exponer el
+servicio a internet vía el túnel.
 
-Tablas: `estudiantes`, `pcs`, `sesiones`.
-
-Backup:
+Endpoint de login:
 
 ```bash
-cp biblioteca.db biblioteca.db.bak
+curl -X POST http://<host>:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "tu_password"}'
 ```
