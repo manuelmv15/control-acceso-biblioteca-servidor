@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-from database import init_db
+from db import init_db
 from routers import auth, sync, estudiantes, reportes, estado
 
 app = FastAPI(title="Biblioteca Control", version="1.0.0")

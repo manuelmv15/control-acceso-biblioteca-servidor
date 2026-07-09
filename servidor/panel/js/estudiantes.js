@@ -29,7 +29,7 @@ const Estudiantes = {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${e.carnet}</td>
-                <td>${e.nombre}</td>
+                <td>${e.nombre||'—'}</td>
                 <td>${e.carrera||'—'}</td>
                 <td>${e.facultad||'—'}</td>
                 <td>${e.departamento||'—'}</td>

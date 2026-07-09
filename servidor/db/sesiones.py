@@ -1,0 +1,35 @@
+from datetime import datetime
+from .connection import conexion
+from . import pcs as db_pcs
+from .estudiantes import upsert_desde_sesion
+
+
+def registrar_sync(payload, ip):
+    with conexion() as conn:
+        cursor = conn.cursor()
+        ahora = datetime.now().isoformat()
+
+        db_pcs.upsert_conexion(cursor, payload.pc_id, payload.pc_nombre, ahora, ip)
+
+        insertados = 0
+        fecha_hoy = datetime.now().date().isoformat()
+        for s in payload.sesiones:
+            upsert_desde_sesion(
+                cursor, s.carnet, s.nombre, s.carrera, s.facultad,
+                s.departamento, s.sexo, s.fecha_nacimiento, fecha_hoy,
+            )
+
+            cursor.execute("""
+                INSERT INTO sesiones
+                    (id, pc_id, carnet, hora_inicio, hora_fin, fecha, sincronizado, timestamp_sync)
+                VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+                ON DUPLICATE KEY UPDATE
+                    hora_fin       = IF(VALUES(hora_fin) IS NOT NULL, VALUES(hora_fin), hora_fin),
+                    sincronizado   = IF(VALUES(hora_fin) IS NOT NULL, 1, sincronizado),
+                    timestamp_sync = IF(VALUES(hora_fin) IS NOT NULL, VALUES(timestamp_sync), timestamp_sync)
+            """, (s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha, ahora))
+            if cursor.rowcount > 0:
+                insertados += 1
+
+        conn.commit()
+        return {"recibidos": len(payload.sesiones), "insertados": insertados, "timestamp": ahora}

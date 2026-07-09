@@ -11,7 +11,7 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "biblioteca2024")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "biblioteca2026")
 
 
 def create_token(data: dict) -> str:
