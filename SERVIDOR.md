@@ -26,8 +26,17 @@ cp .env.example .env
 | `SECRET_KEY` | Clave JWT — usar una cadena larga y aleatoria |
 | `ADMIN_USER` | Usuario del panel |
 | `ADMIN_PASS` | Contraseña del panel |
+| `DB_NAME` | Nombre de la base de datos |
+| `DB_USER` | Usuario de la base de datos |
+| `DB_PASSWORD` | Contraseña del usuario de la base de datos |
+| `MYSQL_ROOT_PASSWORD` | Contraseña root de MySQL (usada solo por el contenedor `db`) |
 
 `.env` está en `.gitignore` — nunca se commitea.
+
+> **Nota:** `SECRET_KEY` no está en `.env.example` pero sí se lee en
+> `docker-compose.yml` y en `servidor/routers/auth.py`. Si no se define,
+> el código cae en un valor por defecto inseguro — agregarla a `.env`
+> antes de exponer el servicio a la red.
 
 ---
 
@@ -39,9 +48,11 @@ Desde la raíz del repo (donde está `docker-compose.yml`):
 docker compose up -d --build
 ```
 
-Esto levanta un contenedor:
+Esto levanta dos contenedores:
 
-- `servidor`: la API FastAPI (puerto interno y de host 8000)
+- `servidor`: la API FastAPI (puerto interno y de host 8000), construida desde
+  `servidor/Dockerfile` (imagen `python:3.12-slim`)
+- `db`: MySQL 8.4, expuesto en el puerto 3306 del host
 
 **URLs (desde cualquier PC de la red local):**
 
@@ -57,6 +68,78 @@ aleatorio rompería el acceso desde todas ellas en cada `down`/`up`.
 La IP del servidor sí puede cambiar si la asigna DHCP. Para evitar tener que
 reconfigurar cada PC, reservar una IP fija para el servidor en el router
 (DHCP reservation) o asignarle una IP estática en el host.
+
+---
+
+## Estructura del código (`servidor/`)
+
+```
+servidor/
+├── main.py            # App FastAPI: monta routers, panel estático y /health
+├── routers/            # auth, sync, estudiantes, reportes, estado
+├── models/             # Esquemas Pydantic (request/response)
+├── db/                 # Acceso a MySQL (PyMySQL) + creación de tablas
+├── panel/               # Frontend estático (HTML/CSS/JS vanilla) servido en /panel
+├── Dockerfile
+└── requirements.txt
+```
+
+`db/connection.py` envuelve `pymysql` para exponer una interfaz tipo
+`sqlite3` (`conn.execute`, `conn.executescript`). `db/schema.py` crea las
+tablas (`CREATE TABLE IF NOT EXISTS`) en el evento `startup` de FastAPI —
+no hay sistema de migraciones, los cambios de esquema se editan
+directamente ahí.
+
+---
+
+## Endpoints
+
+Login (JWT, `python-jose`, expira en 24h):
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/auth/login` | Devuelve `{access_token, token_type}` |
+
+Sincronización desde las PCs del laboratorio:
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/sync` | Recibe `pc_id`, `pc_nombre`, `ip`, lista de `sesiones` |
+| `POST` | `/estado` | Reporta estado en vivo de una PC (sesión activa, estudiante) |
+| `GET` | `/estado` | Lista el último estado reportado por cada PC |
+
+CRUD de estudiantes:
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/estudiantes` | Crea (409 si el carnet ya existe) |
+| `GET` | `/estudiantes` | Lista todos |
+| `GET` | `/estudiantes/{carnet}` | Obtiene uno (404 si no existe) |
+| `PUT` | `/estudiantes/{carnet}` | Actualiza |
+| `DELETE` | `/estudiantes/{carnet}` | Elimina (409 si tiene sesiones registradas) |
+
+Reportes para el panel:
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/reportes/sesiones` | Filtra por `fecha`, `pc_id`, `carnet`, `carrera`; paginado (`limit`/`offset`) |
+| `GET` | `/reportes/pcs-activas` | PCs con sesión activa en este momento |
+| `GET` | `/reportes/resumen-dia` | Totales del día (por defecto, hoy) |
+| `GET` | `/reportes/estadisticas` | Estadísticas agregadas en un rango `desde`/`hasta` |
+
+Otros:
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/health` | Usado para healthchecks |
+| `GET` | `/panel` | Sirve el frontend estático (`panel/index.html`) |
+
+Documentación interactiva completa (todos los esquemas de request/response)
+en `/docs` (Swagger UI, autogenerado por FastAPI).
+
+CORS está abierto a cualquier origen (`allow_origins=["*"]`) para que el
+panel y los scripts de sincronización de las PCs puedan llamar a la API
+desde cualquier dirección de la red local.
 
 ---
 
@@ -104,7 +187,7 @@ docker compose exec db sh -c 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL
 ### Inspeccionar el volumen
 
 ```bash
-docker volume inspect bliblioteca_db_data
+docker volume inspect biblioteca_db_data
 ```
 
 ---
@@ -112,7 +195,7 @@ docker volume inspect bliblioteca_db_data
 ## Credenciales
 
 Definidas por `ADMIN_USER` / `ADMIN_PASS` en `.env`. Si no se definen, el
-código cae en defaults inseguros (`admin` / `biblioteca2024`,
+código cae en defaults inseguros (`admin` / `biblioteca2026`,
 `SECRET_KEY` de ejemplo) — **siempre** completar `.env` antes de exponer el
 servicio a la red.
 
