@@ -35,7 +35,7 @@ const Sesiones = {
         const q       = document.getElementById('filter-carnet')?.value.toLowerCase() || '';
         const facultad = document.getElementById('filter-facultad')?.value || '';
         const filtered = this.datos.filter(s =>
-            (!q       || s.carnet.toLowerCase().includes(q) || (s.nombre||'').toLowerCase().includes(q)) &&
+            (!q       || (s.carnet||'').toLowerCase().includes(q) || (s.nombre||'').toLowerCase().includes(q)) &&
             (!facultad || s.facultad === facultad)
         );
         this._renderTabla(filtered);
@@ -45,7 +45,7 @@ const Sesiones = {
         const fecha = document.getElementById('filter-fecha')?.value || 'hoy';
         const headers = ['Carnet','Nombre','Carrera','Facultad','PC','Hora inicio','Hora fin','Minutos'];
         const rows = this.datos.map(s => [
-            s.carnet, s.nombre||'', s.carrera||'', s.facultad||'',
+            s.carnet||'Invitado', s.nombre||'', s.carrera||'', s.facultad||'',
             s.pc_id, s.hora_inicio, s.hora_fin||'', s.minutos??''
         ]);
         const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
@@ -83,7 +83,7 @@ const Sesiones = {
             const tr = document.createElement('tr');
             if (activa) tr.classList.add('fila-activa');
             tr.innerHTML = `
-                <td>${s.carnet}</td>
+                <td>${s.carnet || '<span class="badge-invitado">Invitado</span>'}</td>
                 <td>${s.nombre||'—'}</td>
                 <td>${s.carrera||'—'}</td>
                 <td>${s.pc_id}</td>

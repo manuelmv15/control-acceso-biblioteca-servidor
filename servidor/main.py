@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 import os
 
 from db import init_db
-from routers import auth, sync, estudiantes, reportes, estado
+from routers import auth, sync, estudiantes, reportes, estado, pcs
 
 app = FastAPI(title="Biblioteca Control", version="1.0.0")
 
@@ -22,6 +22,7 @@ app.include_router(sync.router)
 app.include_router(estudiantes.router)
 app.include_router(reportes.router)
 app.include_router(estado.router)
+app.include_router(pcs.router)
 
 panel_path = os.path.join(os.path.dirname(__file__), "panel")
 if os.path.isdir(panel_path):

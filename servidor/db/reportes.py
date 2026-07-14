@@ -20,7 +20,6 @@ def listar_sesiones(fecha=None, pc_id=None, carnet=None, carrera=None, limit=500
 
     where_e = [
         "ep.sesion_activa = 1",
-        "ep.carnet IS NOT NULL",
         "ep.hora_inicio IS NOT NULL",
         "DATE(ep.hora_inicio) = %s",
         "NOT EXISTS (SELECT 1 FROM sesiones sx WHERE sx.pc_id = ep.pc_id AND sx.hora_inicio = ep.hora_inicio AND sx.hora_fin IS NULL)",
@@ -93,7 +92,7 @@ def resumen_dia(fecha=None):
                 UNION ALL
                 SELECT carnet, pc_id, hora_inicio, NULL AS hora_fin
                 FROM estado_pcs
-                WHERE sesion_activa = 1 AND carnet IS NOT NULL AND hora_inicio IS NOT NULL
+                WHERE sesion_activa = 1 AND hora_inicio IS NOT NULL
                   AND DATE(hora_inicio) = %s
                   AND NOT EXISTS (
                       SELECT 1 FROM sesiones sx WHERE sx.pc_id = estado_pcs.pc_id AND sx.hora_inicio = estado_pcs.hora_inicio AND sx.hora_fin IS NULL

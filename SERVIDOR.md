@@ -108,6 +108,13 @@ Sincronización desde las PCs del laboratorio:
 | `POST` | `/estado` | Reporta estado en vivo de una PC (sesión activa, estudiante) |
 | `GET` | `/estado` | Lista el último estado reportado por cada PC |
 
+PCs y mantenimiento:
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/pcs` | Lista PCs con fecha del último mantenimiento y minutos de uso acumulados desde entonces (`minutos_uso_desde_mantenimiento`) |
+| `POST` | `/pcs/{pc_id}/mantenimiento` | Marca que se realizó mantenimiento ahora (reinicia el contador de uso) |
+
 CRUD de estudiantes:
 
 | Método | Ruta | Descripción |
@@ -177,6 +184,14 @@ el volumen nombrado `db_data` (ruta dentro del contenedor:
 `DB_USER`, `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` en `.env`.
 
 Tablas: `estudiantes`, `pcs`, `sesiones`, `estado_pcs`.
+
+`sesiones.carnet` acepta `NULL`: una sesión sin carnet es de un **invitado**
+(alguien que no es estudiante) — solo se guardan `pc_id`, `hora_inicio` y
+`hora_fin`, sin datos personales. `pcs.ultimo_mantenimiento` guarda la fecha
+del último mantenimiento reportado vía `POST /pcs/{pc_id}/mantenimiento`;
+`GET /pcs` calcula el tiempo de uso acumulado desde esa fecha (suma de
+duraciones de sesiones, incluida la sesión activa si la hay) como referencia
+para saber cuándo corresponde el próximo mantenimiento.
 
 ### Backup
 

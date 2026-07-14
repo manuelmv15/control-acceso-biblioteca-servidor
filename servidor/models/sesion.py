@@ -5,7 +5,7 @@ from typing import Optional
 class Sesion(BaseModel):
     id: str
     pc_id: str
-    carnet: str
+    carnet: Optional[str] = None
     hora_inicio: str
     hora_fin: Optional[str] = None
     fecha: str

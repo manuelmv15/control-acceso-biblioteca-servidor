@@ -1,6 +1,14 @@
 from .connection import conexion
 
 
+def _tiene_columna(conn, tabla, columna):
+    row = conn.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+    """, (tabla, columna)).fetchone()
+    return row is not None
+
+
 def init_db():
     with conexion() as conn:
         conn.executescript("""
@@ -19,13 +27,14 @@ def init_db():
                 pc_id VARCHAR(100) PRIMARY KEY,
                 nombre VARCHAR(255),
                 ultima_conexion DATETIME,
-                ip_reportada VARCHAR(45)
+                ip_reportada VARCHAR(45),
+                ultimo_mantenimiento DATETIME
             ) ENGINE=InnoDB;
 
             CREATE TABLE IF NOT EXISTS sesiones (
                 id VARCHAR(100) PRIMARY KEY,
                 pc_id VARCHAR(100) NOT NULL,
-                carnet VARCHAR(30) NOT NULL,
+                carnet VARCHAR(30),
                 hora_inicio DATETIME NOT NULL,
                 hora_fin DATETIME,
                 fecha DATE NOT NULL,
@@ -50,4 +59,11 @@ def init_db():
                 CONSTRAINT fk_estado_pcs_estudiante FOREIGN KEY (carnet) REFERENCES estudiantes(carnet) ON DELETE SET NULL
             ) ENGINE=InnoDB;
         """)
+        conn.commit()
+
+        # Migraciones ligeras para bases ya existentes (no hay sistema de
+        # migraciones formal; los cambios de esquema se aplican aquí).
+        if not _tiene_columna(conn, "pcs", "ultimo_mantenimiento"):
+            conn.execute("ALTER TABLE pcs ADD COLUMN ultimo_mantenimiento DATETIME NULL")
+        conn.execute("ALTER TABLE sesiones MODIFY COLUMN carnet VARCHAR(30) NULL")
         conn.commit()
