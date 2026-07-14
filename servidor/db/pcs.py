@@ -1,5 +1,6 @@
 from datetime import datetime
 from .connection import conexion
+from .umbrales import calcular_estado
 
 
 def upsert_conexion(conn, pc_id, nombre, ultima_conexion, ip):
@@ -33,14 +34,23 @@ def registrar_mantenimiento(pc_id):
 
 
 def listar_mantenimiento():
-    """PCs con su fecha de último mantenimiento y el tiempo de uso (suma de
-    duraciones de sesiones) acumulado desde entonces, como referencia para
-    saber a cuáles les toca mantenimiento."""
+    """PCs con su fecha de último mantenimiento, el tiempo de uso (suma de
+    duraciones de sesiones) acumulado desde entonces, y la última lectura
+    del agente de hardware del cliente (specs, salud, horas reales de
+    encendido), como referencia para saber a cuáles les toca mantenimiento.
+
+    minutos_uso_desde_mantenimiento: tiempo de sesiones de estudiantes/invitados.
+    horas_uso_acumuladas / estado_mantenimiento: tiempo real que la PC estuvo
+    encendida desde el último mantenimiento (lo que pide proyecto.md para las
+    alertas de 300h/400h), reportado por el agente de hardware del cliente."""
     with conexion() as conn:
         rows = conn.execute("""
             SELECT p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento,
                    COALESCE(SUM(TIMESTAMPDIFF(MINUTE, t.hora_inicio, COALESCE(t.hora_fin, NOW()))), 0)
-                       AS minutos_uso_desde_mantenimiento
+                       AS minutos_uso_desde_mantenimiento,
+                   h.hostname, h.mac_address, h.cpu, h.ram_total_mb, h.almacenamiento_total_gb,
+                   h.sistema_operativo, h.temperatura_cpu_c, h.disco_smart_ok,
+                   h.horas_uso_acumuladas, h.ultima_lectura
             FROM pcs p
             LEFT JOIN (
                 SELECT pc_id, hora_inicio, hora_fin FROM sesiones
@@ -50,7 +60,16 @@ def listar_mantenimiento():
                 WHERE sesion_activa = 1 AND hora_inicio IS NOT NULL
             ) t ON t.pc_id = p.pc_id
                AND t.hora_inicio >= COALESCE(p.ultimo_mantenimiento, '1970-01-01 00:00:00')
-            GROUP BY p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento
+            LEFT JOIN pcs_hardware h ON h.pc_id = p.pc_id
+            GROUP BY p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento,
+                     h.hostname, h.mac_address, h.cpu, h.ram_total_mb, h.almacenamiento_total_gb,
+                     h.sistema_operativo, h.temperatura_cpu_c, h.disco_smart_ok,
+                     h.horas_uso_acumuladas, h.ultima_lectura
             ORDER BY p.nombre
         """).fetchall()
-        return [dict(r) for r in rows]
+        resultado = []
+        for r in rows:
+            d = dict(r)
+            d["estado_mantenimiento"] = calcular_estado(d["horas_uso_acumuladas"])
+            resultado.append(d)
+        return resultado

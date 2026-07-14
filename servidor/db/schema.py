@@ -58,6 +58,21 @@ def init_db():
                 CONSTRAINT fk_estado_pcs_pc FOREIGN KEY (pc_id) REFERENCES pcs(pc_id),
                 CONSTRAINT fk_estado_pcs_estudiante FOREIGN KEY (carnet) REFERENCES estudiantes(carnet) ON DELETE SET NULL
             ) ENGINE=InnoDB;
+
+            CREATE TABLE IF NOT EXISTS pcs_hardware (
+                pc_id VARCHAR(100) PRIMARY KEY,
+                hostname VARCHAR(255),
+                mac_address VARCHAR(20),
+                cpu VARCHAR(255),
+                ram_total_mb INT,
+                almacenamiento_total_gb INT,
+                sistema_operativo VARCHAR(255),
+                temperatura_cpu_c DECIMAL(5,1),
+                disco_smart_ok TINYINT(1),
+                horas_uso_acumuladas DECIMAL(8,2) NOT NULL DEFAULT 0,
+                ultima_lectura DATETIME,
+                CONSTRAINT fk_pcs_hardware_pc FOREIGN KEY (pc_id) REFERENCES pcs(pc_id)
+            ) ENGINE=InnoDB;
         """)
         conn.commit()
 

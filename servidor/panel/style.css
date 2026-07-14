@@ -266,7 +266,27 @@ tbody tr:last-child td { border-bottom: none; }
     font-size: 0.78rem; font-weight: 600;
 }
 
+.badge-optimo {
+    background: #d4edda; color: #155724;
+    padding: 0.15rem 0.5rem; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 600;
+}
+
+.badge-pendiente {
+    background: #fff3cd; color: #856404;
+    padding: 0.15rem 0.5rem; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 600;
+}
+
+.badge-critico {
+    background: #f8d7da; color: #721c24;
+    padding: 0.15rem 0.5rem; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 700;
+}
+
 .fila-activa { background: #f6fff8; }
+.fila-critica { background: #fff5f5; }
+.specs-resumen { font-size: 0.78rem; color: var(--texto-secundario); }
 .dur-activa { color: var(--color-activo); font-weight: 600; }
 
 .empty-msg { text-align: center; color: var(--texto-secundario); padding: 2.5rem; }

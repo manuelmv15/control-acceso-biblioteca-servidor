@@ -76,7 +76,7 @@ reconfigurar cada PC, reservar una IP fija para el servidor en el router
 ```
 servidor/
 ├── main.py            # App FastAPI: monta routers, panel estático y /health
-├── routers/            # auth, sync, estudiantes, reportes, estado
+├── routers/            # auth, sync, estudiantes, reportes, estado, pcs, hardware
 ├── models/             # Esquemas Pydantic (request/response)
 ├── db/                 # Acceso a MySQL (PyMySQL) + creación de tablas
 ├── panel/               # Frontend estático (HTML/CSS/JS vanilla) servido en /panel
@@ -112,8 +112,9 @@ PCs y mantenimiento:
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/pcs` | Lista PCs con fecha del último mantenimiento y minutos de uso acumulados desde entonces (`minutos_uso_desde_mantenimiento`) |
-| `POST` | `/pcs/{pc_id}/mantenimiento` | Marca que se realizó mantenimiento ahora (reinicia el contador de uso) |
+| `GET` | `/pcs` | Lista PCs con fecha del último mantenimiento, minutos de uso en sesiones (`minutos_uso_desde_mantenimiento`) y la última lectura del agente de hardware del cliente (specs, salud, `horas_uso_acumuladas`, `estado_mantenimiento`) |
+| `POST` | `/pcs/{pc_id}/mantenimiento` | Marca que se realizó mantenimiento ahora (reinicia el contador de uso y el acumulador de horas del agente) |
+| `POST` | `/pcs/{pc_id}/hardware` | Recibe el heartbeat del agente de hardware del cliente (specs, temperatura, SMART, horas reales de encendido). Responde `ultimo_mantenimiento` y `estado_mantenimiento` para que el agente sepa si debe reiniciar su acumulador local |
 
 CRUD de estudiantes:
 
@@ -183,7 +184,7 @@ el volumen nombrado `db_data` (ruta dentro del contenedor:
 `/var/lib/mysql`). Credenciales y nombre de base definidos por `DB_NAME`,
 `DB_USER`, `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` en `.env`.
 
-Tablas: `estudiantes`, `pcs`, `sesiones`, `estado_pcs`.
+Tablas: `estudiantes`, `pcs`, `sesiones`, `estado_pcs`, `pcs_hardware`.
 
 `sesiones.carnet` acepta `NULL`: una sesión sin carnet es de un **invitado**
 (alguien que no es estudiante) — solo se guardan `pc_id`, `hora_inicio` y
@@ -192,6 +193,21 @@ del último mantenimiento reportado vía `POST /pcs/{pc_id}/mantenimiento`;
 `GET /pcs` calcula el tiempo de uso acumulado desde esa fecha (suma de
 duraciones de sesiones, incluida la sesión activa si la hay) como referencia
 para saber cuándo corresponde el próximo mantenimiento.
+
+`pcs_hardware` guarda la última lectura reportada por el agente de hardware
+de cada PC cliente (una fila por `pc_id`, se sobrescribe en cada heartbeat):
+specs (`cpu`, `ram_total_mb`, `almacenamiento_total_gb`, `sistema_operativo`),
+salud opcional (`temperatura_cpu_c`, `disco_smart_ok` — `NULL` si el cliente
+no pudo leerlos) y `horas_uso_acumuladas`, el tiempo real que la PC ha estado
+encendida desde el último mantenimiento (medido por el propio agente, no
+derivado de las sesiones). `GET /pcs` calcula `estado_mantenimiento` a partir
+de esas horas con los umbrales de `proyecto.md`: `optimo` (<300h), `pendiente`
+(300–400h), `critico` (>400h) — el panel resalta en rojo las filas en estado
+`critico`. El acumulador de horas vive en el cliente (SQLite local), no en el
+servidor; se reinicia solo cuando el agente detecta, en la respuesta de
+`POST /pcs/{pc_id}/hardware`, que `ultimo_mantenimiento` cambió respecto a lo
+último que conocía — es decir, el botón "Registrar mantenimiento" del panel
+sigue siendo el único disparador del reinicio.
 
 ### Backup
 

@@ -53,6 +53,26 @@ const PCs = {
         return h > 0 ? `${h}h ${m}m` : `${m}m`;
     },
 
+    _badgeEstado(estado) {
+        const etiquetas = { optimo: 'Óptimo', pendiente: 'Pendiente', critico: 'Crítico' };
+        if (!estado) return '<span class="specs-resumen">Sin datos</span>';
+        return `<span class="badge-${estado}">${etiquetas[estado] || estado}</span>`;
+    },
+
+    _specsResumen(pc) {
+        if (!pc.cpu && !pc.ram_total_mb && !pc.almacenamiento_total_gb) {
+            return '<span class="specs-resumen">Sin reportar</span>';
+        }
+        const ram = pc.ram_total_mb ? `${Math.round(pc.ram_total_mb / 1024)}GB RAM` : null;
+        const disco = pc.almacenamiento_total_gb ? `${pc.almacenamiento_total_gb}GB disco` : null;
+        const partes = [pc.cpu, ram, disco].filter(Boolean).join(' · ');
+        const salud = [];
+        if (pc.temperatura_cpu_c != null) salud.push(`${pc.temperatura_cpu_c}°C`);
+        if (pc.disco_smart_ok === 0) salud.push('SMART: FALLA');
+        const lineaSalud = salud.length ? `<br>${salud.join(' · ')}` : '';
+        return `<span class="specs-resumen">${partes}${lineaSalud}</span>`;
+    },
+
     _renderMantenimiento(pcs) {
         const tbody = document.getElementById('mantenimiento-body');
         const noEl = document.getElementById('no-mantenimiento');
@@ -64,11 +84,16 @@ const PCs = {
             const ultimo = pc.ultimo_mantenimiento
                 ? new Date(pc.ultimo_mantenimiento.replace(' ', 'T')).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' })
                 : 'Nunca';
+            const horas = pc.horas_uso_acumuladas != null ? `${Number(pc.horas_uso_acumuladas).toFixed(1)}h` : '—';
             const tr = document.createElement('tr');
+            if (pc.estado_mantenimiento === 'critico') tr.classList.add('fila-critica');
             tr.innerHTML = `
                 <td>${pc.nombre || pc.pc_id}</td>
                 <td>${ultimo}</td>
                 <td>${this._fmtDuracion(pc.minutos_uso_desde_mantenimiento)}</td>
+                <td>${horas}</td>
+                <td>${this._badgeEstado(pc.estado_mantenimiento)}</td>
+                <td>${this._specsResumen(pc)}</td>
                 <td><button class="btn-secondary btn-mantenimiento" data-pc="${pc.pc_id}">Registrar mantenimiento</button></td>
             `;
             tbody.appendChild(tr);
