@@ -14,7 +14,7 @@ def actualizar_estado(payload):
             fecha_hoy = datetime.now().date().isoformat()
             upsert_desde_sesion(
                 conn, payload.carnet, payload.nombre, payload.carrera,
-                payload.facultad, payload.departamento, payload.sexo,
+                payload.facultad, payload.sexo,
                 payload.fecha_nacimiento, fecha_hoy,
             )
 

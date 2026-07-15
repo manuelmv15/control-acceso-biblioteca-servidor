@@ -32,7 +32,6 @@ const Estudiantes = {
                 <td>${e.nombre||'—'}</td>
                 <td>${e.carrera||'—'}</td>
                 <td>${e.facultad||'—'}</td>
-                <td>${e.departamento||'—'}</td>
                 <td>${e.sexo||'—'}</td>
                 <td>${e.fecha_registro||'—'}</td>
                 <td><button class="btn-edit-est" data-carnet="${e.carnet}">Editar</button></td>
@@ -51,7 +50,6 @@ const Estudiantes = {
         document.getElementById('est-nombre').value       = datos.nombre      || '';
         document.getElementById('est-carrera').value      = datos.carrera     || '';
         document.getElementById('est-facultad').value     = datos.facultad    || '';
-        document.getElementById('est-departamento').value = datos.departamento|| '';
         document.getElementById('est-fecha-nac').value    = datos.fecha_nacimiento || '';
         document.getElementById('est-sexo').value         = datos.sexo        || '';
         document.getElementById('modal-est-error').textContent = '';
@@ -80,7 +78,6 @@ const Estudiantes = {
         const nombre      = document.getElementById('est-nombre').value.trim();
         const carrera     = document.getElementById('est-carrera').value.trim();
         const facultad    = document.getElementById('est-facultad').value.trim();
-        const departamento= document.getElementById('est-departamento').value.trim();
         const fecha_nac   = document.getElementById('est-fecha-nac').value;
         const sexo        = document.getElementById('est-sexo').value;
         const errEl       = document.getElementById('modal-est-error');
@@ -88,7 +85,7 @@ const Estudiantes = {
         if (!carnet || !nombre) { errEl.textContent = 'Carnet y nombre son requeridos.'; return; }
 
         const body = { carnet, nombre, carrera: carrera||null, facultad: facultad||null,
-                       departamento: departamento||null, fecha_nacimiento: fecha_nac||null, sexo: sexo||null };
+                       fecha_nacimiento: fecha_nac||null, sexo: sexo||null };
         try {
             if (this._editCarnet) {
                 await API.fetchRaw(`/estudiantes/${this._editCarnet}`, { method: 'PUT', body });

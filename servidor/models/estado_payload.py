@@ -11,6 +11,5 @@ class EstadoPayload(BaseModel):
     hora_inicio: Optional[str] = None
     carrera: Optional[str] = None
     facultad: Optional[str] = None
-    departamento: Optional[str] = None
     sexo: Optional[str] = None
     fecha_nacimiento: Optional[str] = None

@@ -39,9 +39,11 @@ def listar_sesiones(fecha=None, pc_id=None, carnet=None, carrera=None, limit=500
         rows = conn.execute(f"""
             SELECT s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha,
                    e.nombre, e.carrera, e.facultad,
+                   p.nombre AS pc_nombre, p.ip_reportada AS pc_ip,
                    TIMESTAMPDIFF(MINUTE, s.hora_inicio, COALESCE(s.hora_fin, NOW())) AS minutos
             FROM sesiones s
             LEFT JOIN estudiantes e ON e.carnet = s.carnet
+            LEFT JOIN pcs p ON p.pc_id = s.pc_id
             {where_sql}
 
             UNION ALL
@@ -56,9 +58,11 @@ def listar_sesiones(fecha=None, pc_id=None, carnet=None, carrera=None, limit=500
                 ep.nombre,
                 e2.carrera,
                 e2.facultad,
+                p2.nombre AS pc_nombre, p2.ip_reportada AS pc_ip,
                 TIMESTAMPDIFF(MINUTE, ep.hora_inicio, NOW()) AS minutos
             FROM estado_pcs ep
             LEFT JOIN estudiantes e2 ON e2.carnet = ep.carnet
+            LEFT JOIN pcs p2 ON p2.pc_id = ep.pc_id
             {where_estado_sql}
 
             ORDER BY hora_inicio DESC

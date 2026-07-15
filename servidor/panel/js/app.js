@@ -54,7 +54,7 @@ const App = {
             b.classList.toggle('active', b.dataset.tab === tab)
         );
         try {
-            const res = await fetch(`/panel/views/${tab}.html`);
+            const res = await fetch(`/panel/views/${tab}.html`, { cache: 'no-store' });
             document.getElementById('tab-container').innerHTML = await res.text();
         } catch (e) {
             console.error('No se pudo cargar la vista:', tab, e);

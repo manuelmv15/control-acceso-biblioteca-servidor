@@ -17,7 +17,6 @@ def init_db():
                 nombre VARCHAR(255),
                 fecha_nacimiento DATE,
                 carrera VARCHAR(255),
-                departamento VARCHAR(255),
                 facultad VARCHAR(255),
                 sexo VARCHAR(20),
                 fecha_registro DATE NOT NULL
@@ -81,4 +80,6 @@ def init_db():
         if not _tiene_columna(conn, "pcs", "ultimo_mantenimiento"):
             conn.execute("ALTER TABLE pcs ADD COLUMN ultimo_mantenimiento DATETIME NULL")
         conn.execute("ALTER TABLE sesiones MODIFY COLUMN carnet VARCHAR(30) NULL")
+        if _tiene_columna(conn, "estudiantes", "departamento"):
+            conn.execute("ALTER TABLE estudiantes DROP COLUMN departamento")
         conn.commit()

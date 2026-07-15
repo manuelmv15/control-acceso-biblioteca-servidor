@@ -82,11 +82,11 @@ const Estadisticas = {
                     datasets: [{
                         label: 'Sesiones',
                         data: values,
-                        borderColor: '#1A237E',
-                        backgroundColor: 'rgba(26,35,126,0.08)',
+                        borderColor: '#696969',
+                        backgroundColor: 'rgba(105,105,105,0.08)',
                         fill: true,
                         tension: 0.3,
-                        pointBackgroundColor: '#E50000',
+                        pointBackgroundColor: '#8B0E13',
                         pointRadius: datos.length <= 31 ? 4 : 2,
                     }]
                 },
@@ -121,7 +121,7 @@ const Estadisticas = {
                         backgroundColor: values.map(v => {
                             const max = Math.max(...values);
                             const alpha = max > 0 ? 0.3 + (v / max) * 0.7 : 0.3;
-                            return `rgba(229,0,0,${alpha.toFixed(2)})`;
+                            return `rgba(139,14,19,${alpha.toFixed(2)})`;
                         }),
                         borderRadius: 3,
                     }]
@@ -140,13 +140,13 @@ const Estadisticas = {
 
     _renderPorSexo(datos) {
         const colorMap = {
-            'M': '#1A237E', 'F': '#E50000',
-            'Masculino': '#1A237E', 'Femenino': '#E50000',
-            'No especificado': '#BDBDBD',
+            'M': '#1A171B', 'F': '#8B0E13',
+            'Masculino': '#1A171B', 'Femenino': '#8B0E13',
+            'No especificado': '#ABABAB',
         };
         const labels = datos.map(d => d.sexo);
         const values = datos.map(d => d.sesiones);
-        const colors = labels.map(l => colorMap[l] || '#FFCC00');
+        const colors = labels.map(l => colorMap[l] || '#696969');
 
         this._destroyChart('chart-por-sexo');
         this.charts['chart-por-sexo'] = new Chart(
@@ -187,7 +187,7 @@ const Estadisticas = {
                     datasets: [{
                         label: 'Sesiones',
                         data: values,
-                        backgroundColor: 'rgba(26,35,126,0.75)',
+                        backgroundColor: 'rgba(139,14,19,0.75)',
                         borderRadius: 3,
                     }]
                 },

@@ -14,6 +14,5 @@ class Sesion(BaseModel):
     nombre: Optional[str] = None
     carrera: Optional[str] = None
     facultad: Optional[str] = None
-    departamento: Optional[str] = None
     sexo: Optional[str] = None
     fecha_nacimiento: Optional[str] = None

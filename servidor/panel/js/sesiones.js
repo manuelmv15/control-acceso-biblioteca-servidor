@@ -43,10 +43,10 @@ const Sesiones = {
 
     exportarCSV() {
         const fecha = document.getElementById('filter-fecha')?.value || 'hoy';
-        const headers = ['Carnet','Nombre','Carrera','Facultad','PC','Hora inicio','Hora fin','Minutos'];
+        const headers = ['Carnet','Nombre','Carrera','Facultad','PC','ID PC','Hora inicio','Hora fin','Minutos'];
         const rows = this.datos.map(s => [
             s.carnet||'Invitado', s.nombre||'', s.carrera||'', s.facultad||'',
-            s.pc_id, s.hora_inicio, s.hora_fin||'', s.minutos??''
+            s.pc_nombre||'', s.pc_id, s.hora_inicio, s.hora_fin||'', s.minutos??''
         ]);
         const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -86,6 +86,7 @@ const Sesiones = {
                 <td>${s.carnet || '<span class="badge-invitado">Invitado</span>'}</td>
                 <td>${s.nombre||'—'}</td>
                 <td>${s.carrera||'—'}</td>
+                <td>${s.pc_nombre||'—'}</td>
                 <td>${s.pc_id}</td>
                 <td>${fmtHora(s.hora_inicio)}</td>
                 <td>${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>

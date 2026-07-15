@@ -17,7 +17,7 @@ def registrar_sync(payload, ip):
             if s.carnet:
                 upsert_desde_sesion(
                     cursor, s.carnet, s.nombre, s.carrera, s.facultad,
-                    s.departamento, s.sexo, s.fecha_nacimiento, fecha_hoy,
+                    s.sexo, s.fecha_nacimiento, fecha_hoy,
                 )
 
             cursor.execute("""

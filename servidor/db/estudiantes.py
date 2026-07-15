@@ -23,9 +23,9 @@ def crear(est):
 
         fecha_reg = est.fecha_registro or datetime.utcnow().date().isoformat()
         conn.execute("""
-            INSERT INTO estudiantes (carnet, nombre, fecha_nacimiento, carrera, departamento, facultad, sexo, fecha_registro)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (est.carnet, est.nombre, est.fecha_nacimiento, est.carrera, est.departamento, est.facultad, est.sexo, fecha_reg))
+            INSERT INTO estudiantes (carnet, nombre, fecha_nacimiento, carrera, facultad, sexo, fecha_registro)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (est.carnet, est.nombre, est.fecha_nacimiento, est.carrera, est.facultad, est.sexo, fecha_reg))
         conn.commit()
 
 
@@ -50,9 +50,9 @@ def actualizar(carnet, est):
             raise EstudianteNoEncontrado()
         conn.execute("""
             UPDATE estudiantes
-            SET nombre=%s, fecha_nacimiento=%s, carrera=%s, departamento=%s, facultad=%s, sexo=%s
+            SET nombre=%s, fecha_nacimiento=%s, carrera=%s, facultad=%s, sexo=%s
             WHERE carnet=%s
-        """, (est.nombre, est.fecha_nacimiento, est.carrera, est.departamento, est.facultad, est.sexo, carnet))
+        """, (est.nombre, est.fecha_nacimiento, est.carrera, est.facultad, est.sexo, carnet))
         conn.commit()
 
 
@@ -68,15 +68,14 @@ def eliminar(carnet):
             raise TieneSesionesRegistradas()
 
 
-def upsert_desde_sesion(conn, carnet, nombre, carrera, facultad, departamento, sexo, fecha_nacimiento, fecha_registro):
+def upsert_desde_sesion(conn, carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro):
     conn.execute("""
-        INSERT INTO estudiantes (carnet, nombre, carrera, facultad, departamento, sexo, fecha_nacimiento, fecha_registro)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO estudiantes (carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             nombre       = COALESCE(VALUES(nombre),       nombre),
             carrera      = COALESCE(VALUES(carrera),      carrera),
             facultad     = COALESCE(VALUES(facultad),     facultad),
-            departamento = COALESCE(VALUES(departamento), departamento),
             sexo         = COALESCE(VALUES(sexo),         sexo),
             fecha_nacimiento = COALESCE(VALUES(fecha_nacimiento), fecha_nacimiento)
-    """, (carnet, nombre, carrera, facultad, departamento, sexo, fecha_nacimiento, fecha_registro))
+    """, (carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro))
