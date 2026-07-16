@@ -9,13 +9,21 @@ def _tiene_columna(conn, tabla, columna):
     return row is not None
 
 
+def _tipo_columna(conn, tabla, columna):
+    row = conn.execute("""
+        SELECT data_type AS tipo FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+    """, (tabla, columna)).fetchone()
+    return row["tipo"] if row else None
+
+
 def init_db():
     with conexion() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS estudiantes (
                 carnet VARCHAR(30) PRIMARY KEY,
                 nombre VARCHAR(255),
-                fecha_nacimiento DATE,
+                fecha_nacimiento YEAR,
                 carrera VARCHAR(255),
                 facultad VARCHAR(255),
                 sexo VARCHAR(20),
@@ -82,4 +90,17 @@ def init_db():
         conn.execute("ALTER TABLE sesiones MODIFY COLUMN carnet VARCHAR(30) NULL")
         if _tiene_columna(conn, "estudiantes", "departamento"):
             conn.execute("ALTER TABLE estudiantes DROP COLUMN departamento")
+
+        # El kiosko solo captura el año de nacimiento; bases creadas antes de
+        # este cambio tienen la columna como DATE. Un ALTER MODIFY directo de
+        # DATE a YEAR no extrae el año (MySQL lo trunca a 0000), así que se
+        # migra pasando por una columna nueva.
+        if _tipo_columna(conn, "estudiantes", "fecha_nacimiento") == "date":
+            conn.execute("ALTER TABLE estudiantes ADD COLUMN fecha_nacimiento_new YEAR")
+            conn.execute(
+                "UPDATE estudiantes SET fecha_nacimiento_new = YEAR(fecha_nacimiento) "
+                "WHERE fecha_nacimiento IS NOT NULL"
+            )
+            conn.execute("ALTER TABLE estudiantes DROP COLUMN fecha_nacimiento")
+            conn.execute("ALTER TABLE estudiantes CHANGE COLUMN fecha_nacimiento_new fecha_nacimiento YEAR")
         conn.commit()

@@ -15,6 +15,12 @@ class TieneSesionesRegistradas(Exception):
     pass
 
 
+def _normalizar_fecha_nacimiento(valor):
+    """Solo se captura el año de nacimiento; una cadena vacía debe guardarse
+    como NULL en la columna YEAR."""
+    return valor or None
+
+
 def crear(est):
     with conexion() as conn:
         existe = conn.execute("SELECT carnet FROM estudiantes WHERE carnet = %s", (est.carnet,)).fetchone()
@@ -25,7 +31,7 @@ def crear(est):
         conn.execute("""
             INSERT INTO estudiantes (carnet, nombre, fecha_nacimiento, carrera, facultad, sexo, fecha_registro)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (est.carnet, est.nombre, est.fecha_nacimiento, est.carrera, est.facultad, est.sexo, fecha_reg))
+        """, (est.carnet, est.nombre, _normalizar_fecha_nacimiento(est.fecha_nacimiento), est.carrera, est.facultad, est.sexo, fecha_reg))
         conn.commit()
 
 
@@ -52,7 +58,7 @@ def actualizar(carnet, est):
             UPDATE estudiantes
             SET nombre=%s, fecha_nacimiento=%s, carrera=%s, facultad=%s, sexo=%s
             WHERE carnet=%s
-        """, (est.nombre, est.fecha_nacimiento, est.carrera, est.facultad, est.sexo, carnet))
+        """, (est.nombre, _normalizar_fecha_nacimiento(est.fecha_nacimiento), est.carrera, est.facultad, est.sexo, carnet))
         conn.commit()
 
 
@@ -78,4 +84,4 @@ def upsert_desde_sesion(conn, carnet, nombre, carrera, facultad, sexo, fecha_nac
             facultad     = COALESCE(VALUES(facultad),     facultad),
             sexo         = COALESCE(VALUES(sexo),         sexo),
             fecha_nacimiento = COALESCE(VALUES(fecha_nacimiento), fecha_nacimiento)
-    """, (carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro))
+    """, (carnet, nombre, carrera, facultad, sexo, _normalizar_fecha_nacimiento(fecha_nacimiento), fecha_registro))
