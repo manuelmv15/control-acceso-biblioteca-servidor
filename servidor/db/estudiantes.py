@@ -1,3 +1,4 @@
+import re
 import pymysql
 from datetime import datetime
 from .connection import conexion
@@ -16,9 +17,18 @@ class TieneSesionesRegistradas(Exception):
 
 
 def _normalizar_fecha_nacimiento(valor):
-    """Solo se captura el año de nacimiento; una cadena vacía debe guardarse
-    como NULL en la columna YEAR."""
-    return valor or None
+    """Solo se captura el año de nacimiento. Cualquier valor que no traiga
+    un año de 4 dígitos dentro del rango de la columna YEAR (1901-2155) se
+    guarda como NULL en vez de dejar que MySQL truene con DataError."""
+    if valor is None:
+        return None
+    match = re.match(r"(\d{4})", str(valor))
+    if not match:
+        return None
+    anio = int(match.group(1))
+    if not (1901 <= anio <= 2155):
+        return None
+    return anio
 
 
 def crear(est):
