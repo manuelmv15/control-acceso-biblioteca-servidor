@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from db import estudiantes as db_estudiantes
 from models import Estudiante
+from routers.auth import require_auth
 
-router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
+router = APIRouter(prefix="/estudiantes", tags=["estudiantes"], dependencies=[Depends(require_auth)])
 
 
 @router.post("", status_code=201)

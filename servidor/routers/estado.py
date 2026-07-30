@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from db import estado as db_estado
 from models import EstadoPayload
+from routers.auth import require_auth
 
 router = APIRouter(prefix="/estado", tags=["estado"])
 
@@ -11,6 +12,6 @@ def actualizar_estado(payload: EstadoPayload):
     return {"ok": True, "timestamp": timestamp}
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_auth)])
 def obtener_estados():
     return db_estado.listar_estados()

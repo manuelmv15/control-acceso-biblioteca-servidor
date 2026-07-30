@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from db import pcs as db_pcs
+from routers.auth import require_auth
 
-router = APIRouter(prefix="/pcs", tags=["pcs"])
+router = APIRouter(prefix="/pcs", tags=["pcs"], dependencies=[Depends(require_auth)])
 
 
 @router.get("")
