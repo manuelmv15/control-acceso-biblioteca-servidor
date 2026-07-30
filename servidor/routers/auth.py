@@ -1,6 +1,8 @@
+import hmac
 import os
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from models import LoginRequest, Token
@@ -13,6 +15,8 @@ TOKEN_EXPIRE_HOURS = 24
 
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "biblioteca2026")
+
+KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
 
 
 def create_token(data: dict) -> str:
@@ -36,6 +40,20 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(_bearer_sch
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token requerido")
     return verify_token(credentials.credentials)
+
+
+def require_kiosk_or_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    x_kiosk_key: Optional[str] = Header(None, alias="X-Kiosk-Key"),
+) -> dict:
+    """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer`) o la API key
+    compartida de kiosko (`X-Kiosk-Key`). Si `KIOSK_API_KEY` no está configurada, esa vía
+    queda siempre cerrada (nunca cae a un valor por defecto adivinable)."""
+    if KIOSK_API_KEY and x_kiosk_key and hmac.compare_digest(x_kiosk_key, KIOSK_API_KEY):
+        return {"sub": "kiosko", "role": "kiosk"}
+    if credentials is not None:
+        return verify_token(credentials.credentials)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se requiere JWT de admin o API key de kiosko")
 
 
 @router.post("/login", response_model=Token)

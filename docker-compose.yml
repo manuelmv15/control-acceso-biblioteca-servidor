@@ -34,6 +34,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ADMIN_USER=${ADMIN_USER}
       - ADMIN_PASS=${ADMIN_PASS}
+      - KIOSK_API_KEY=${KIOSK_API_KEY}
       - TZ=America/El_Salvador
     restart: unless-stopped
 
