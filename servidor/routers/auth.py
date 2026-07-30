@@ -9,12 +9,23 @@ from models import LoginRequest, Token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "biblioteca-secret-key-change-in-production")
+
+def _require_env(name: str) -> str:
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(
+            f"La variable de entorno {name} es obligatoria y no puede estar vacía. "
+            f"Configúrala en tu .env antes de iniciar el servidor."
+        )
+    return value
+
+
+SECRET_KEY = _require_env("SECRET_KEY")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "biblioteca2026")
+ADMIN_USER = _require_env("ADMIN_USER")
+ADMIN_PASS = _require_env("ADMIN_PASS")
 
 KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
 

@@ -31,14 +31,14 @@ const PCs = {
             card.innerHTML = `
                 <div class="pc-header">
                     <span class="pc-status-dot"></span>
-                    <span class="pc-nombre">${pc.pc_nombre || pc.pc_id}</span>
+                    <span class="pc-nombre">${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}</span>
                     <span class="pc-badge">${activa ? 'EN USO' : 'LIBRE'}</span>
                 </div>
-                <div class="pc-id">${pc.pc_id}</div>
+                <div class="pc-id">${escapeHtml(pc.pc_id)}</div>
                 ${activa ? `
                     <div class="pc-usuario">
-                        <div class="pc-dato"><span>Carnet</span><strong>${pc.carnet||'Invitado'}</strong></div>
-                        <div class="pc-dato"><span>Nombre</span><strong>${pc.nombre||'—'}</strong></div>
+                        <div class="pc-dato"><span>Carnet</span><strong>${escapeHtml(pc.carnet) || 'Invitado'}</strong></div>
+                        <div class="pc-dato"><span>Nombre</span><strong>${escapeHtml(pc.nombre) || '—'}</strong></div>
                         <div class="pc-dato"><span>Desde</span><strong>${pc.hora_inicio ? fmtHora(pc.hora_inicio) : '—'}</strong></div>
                     </div>
                 ` : '<div class="pc-libre-msg">Disponible</div>'}
@@ -65,7 +65,7 @@ const PCs = {
         }
         const ram = pc.ram_total_mb ? `${Math.round(pc.ram_total_mb / 1024)}GB RAM` : null;
         const disco = pc.almacenamiento_total_gb ? `${pc.almacenamiento_total_gb}GB disco` : null;
-        const partes = [pc.cpu, ram, disco].filter(Boolean).join(' · ');
+        const partes = [pc.cpu ? escapeHtml(pc.cpu) : null, ram, disco].filter(Boolean).join(' · ');
         const salud = [];
         if (pc.temperatura_cpu_c != null) salud.push(`${pc.temperatura_cpu_c}°C`);
         if (pc.disco_smart_ok === 0) salud.push('SMART: FALLA');
@@ -88,13 +88,13 @@ const PCs = {
             const tr = document.createElement('tr');
             if (pc.estado_mantenimiento === 'critico') tr.classList.add('fila-critica');
             tr.innerHTML = `
-                <td>${pc.nombre || pc.pc_id}</td>
+                <td>${escapeHtml(pc.nombre) || escapeHtml(pc.pc_id)}</td>
                 <td>${ultimo}</td>
                 <td>${this._fmtDuracion(pc.minutos_uso_desde_mantenimiento)}</td>
                 <td>${horas}</td>
                 <td>${this._badgeEstado(pc.estado_mantenimiento)}</td>
                 <td>${this._specsResumen(pc)}</td>
-                <td><button class="btn-secondary btn-mantenimiento" data-pc="${pc.pc_id}">Registrar mantenimiento</button></td>
+                <td><button class="btn-secondary btn-mantenimiento" data-pc="${escapeHtml(pc.pc_id)}">Registrar mantenimiento</button></td>
             `;
             tbody.appendChild(tr);
         });
