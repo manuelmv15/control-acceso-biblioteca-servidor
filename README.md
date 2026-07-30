@@ -59,34 +59,35 @@ No existe un sistema formal de migraciones (Alembic, etc.): los cambios de esque
 
 ## Endpoints de la API
 
-> ⚠️ Ver la sección de **Seguridad** más abajo: en la práctica ningún endpoint valida el JWT salvo el login.
+> 🔒 Desde 2026-07-30 (remediación de H-001, ver `docs/security-testing-log.md`), todo endpoint marcado con 🔒 requiere `Authorization: Bearer <token>` válido (obtenido en `/auth/login`) y devuelve 401 si falta o es inválido. Los marcados como **kiosko** son intencionalmente públicos porque el cliente de escritorio no maneja JWT — ver sección de Seguridad.
 
 ### `POST /auth/login`
 Body `{username, password}` → `{access_token, token_type}`. Compara contra `ADMIN_USER`/`ADMIN_PASS`. 401 si no coincide.
 
-### `POST /sync`
+### `POST /sync` — kiosko, público
 Body `{pc_id, pc_nombre?, ip?, sesiones: [Sesion]}` → `{recibidos, insertados, timestamp}`.
 Recibe lotes de sesiones desde el kiosko (offline-first). Ver lógica de upsert en la sección siguiente.
 
-### `POST /estado` / `GET /estado`
+### `POST /estado` (kiosko, público) / `GET /estado` 🔒
 - `POST`: body `{pc_id, pc_nombre?, sesion_activa, carnet?, nombre?, hora_inicio?, carrera?, facultad?, sexo?, fecha_nacimiento?}` → `{ok, timestamp}`. Heartbeat de estado en vivo de una PC.
 - `GET`: lista el estado en vivo de todas las PCs.
 
 ### `/estudiantes`
-- `POST /estudiantes` (201) → `{carnet}`. 409 si el carnet ya existe.
-- `GET /estudiantes` → lista completa, ordenada por nombre (NULLs al final).
-- `GET /estudiantes/{carnet}` → 404 si no existe.
-- `PUT /estudiantes/{carnet}` → actualiza campos, 404 si no existe.
-- `DELETE /estudiantes/{carnet}` (204) → 404 si no existe, 409 si tiene sesiones registradas (FK).
+Auth mixta: el kiosko necesita leer/crear/actualizar por carnet (login, auto-registro, "actualizar mis datos"), pero no debe poder listar todo ni borrar — ver `require_kiosk_or_admin` vs `require_auth` en Seguridad.
+- `POST /estudiantes` (201) 🔒 kiosko o admin → `{carnet}`. 409 si el carnet ya existe.
+- `GET /estudiantes` 🔒 solo admin → lista completa, ordenada por nombre (NULLs al final).
+- `GET /estudiantes/{carnet}` 🔒 kiosko o admin → 404 si no existe.
+- `PUT /estudiantes/{carnet}` 🔒 kiosko o admin → actualiza campos, 404 si no existe.
+- `DELETE /estudiantes/{carnet}` (204) 🔒 solo admin → 404 si no existe, 409 si tiene sesiones registradas (FK).
 
 ### `/pcs`
-- `GET /pcs` → lista de mantenimiento consolidada: specs, salud, minutos de uso desde el último mantenimiento y `estado_mantenimiento`.
-- `POST /pcs/{pc_id}/mantenimiento` → marca `ultimo_mantenimiento = now()`. 404 si la PC no existe.
-- `POST /pcs/{pc_id}/hardware` → body con specs + salud + `horas_uso_acumuladas` (heartbeat del agente de hardware del cliente) → `{ok, ultimo_mantenimiento, estado_mantenimiento}`.
+- `GET /pcs` 🔒 → lista de mantenimiento consolidada: specs, salud, minutos de uso desde el último mantenimiento y `estado_mantenimiento`.
+- `POST /pcs/{pc_id}/mantenimiento` 🔒 → marca `ultimo_mantenimiento = now()`. 404 si la PC no existe.
+- `POST /pcs/{pc_id}/hardware` — kiosko, público → body con specs + salud + `horas_uso_acumuladas` (heartbeat del agente de hardware del cliente) → `{ok, ultimo_mantenimiento, estado_mantenimiento}`.
 
-  (Nota: `routers/pcs.py` y `routers/hardware.py` comparten el mismo prefijo `/pcs` con tags distintos — es intencional, las subrutas no colisionan.)
+  (Nota: `routers/pcs.py` y `routers/hardware.py` comparten el mismo prefijo `/pcs` con tags distintos — es intencional, las subrutas no colisionan. Solo `pcs.py` exige auth; `hardware.py` queda público porque es el heartbeat del agente.)
 
-### `/reportes`
+### `/reportes` 🔒 (todo el router)
 - `GET /reportes/sesiones?fecha&pc_id&carnet&carrera&limit(≤5000)&offset` → sesiones históricas + activas no sincronizadas, unificadas.
 - `GET /reportes/pcs-activas` → PCs con `ultima_conexion` en los últimos 5 minutos.
 - `GET /reportes/resumen-dia?fecha` → totales del día (sesiones, estudiantes únicos, PCs usadas, minutos promedio).
@@ -113,9 +114,10 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 
 ## ⚠️ Seguridad — leer antes de desplegar en producción
 
-- **El JWT no se valida en ningún endpoint salvo el login.** `routers/auth.py` define `verify_token()`, pero ningún router lo usa como dependencia (`Depends`). El frontend del panel sí envía `Authorization: Bearer <token>` y reacciona a un 401, pero el backend nunca lo emite: **toda la API es de acceso público de facto** (CRUD de estudiantes, reportes, mantenimiento, etc.). Antes de exponer este servidor fuera de una red de confianza, hay que añadir la validación del token como dependencia en los routers.
+- **El JWT ya se valida en los endpoints del panel de administración.** `routers/auth.py` expone `require_auth` (dependencia FastAPI basada en `HTTPBearer` + `verify_token`), aplicada a nivel de router en `pcs.py`, `reportes.py`, solo a la ruta `GET` en `estado.py`, y a `GET`/`DELETE` en `estudiantes.py`. Devuelve 401 si falta el header `Authorization` o el token no es válido. **Quedan intencionalmente sin auth** los endpoints que consume el kiosko/agente de hardware, porque ese cliente no maneja JWT: `POST /sync`, `POST /estado`, `POST /pcs/{id}/hardware`, además de `/auth/login` y `/health`. Ver `docs/security-testing-log.md` (H-001, resuelto 2026-07-30) para el detalle de la remediación y su verificación manual.
+- **Auth de servicio para el kiosko en `/estudiantes` (H-011, resuelto).** `POST /estudiantes`, `GET /estudiantes/{carnet}` y `PUT /estudiantes/{carnet}` usan `require_kiosk_or_admin`: aceptan el JWT de admin **o** el header `X-Kiosk-Key` comparado contra `KIOSK_API_KEY`. Si `KIOSK_API_KEY` no está configurada, esa vía queda siempre cerrada. El kiosko debe tener el mismo valor en `cliente/config.ini` (`[servidor] kiosk_key`). `GET /estudiantes` y `DELETE /estudiantes/{carnet}` siguen siendo solo-admin.
 - **CORS totalmente abierto**: `allow_origins=["*"]` combinado con `allow_credentials=True` en `main.py` (combinación que, además, los navegadores ignoran por spec cuando se piden credenciales).
-- **`SECRET_KEY` no está en `.env.example`.** `routers/auth.py` tiene un fallback hardcodeado (`"biblioteca-secret-key-change-in-production"`), pero si copias `.env.example` a `.env` sin añadir `SECRET_KEY`, Docker Compose expande la variable como **cadena vacía** (no ausente), por lo que el fallback de Python nunca se activa y el JWT queda firmado con secreto vacío. **Añade `SECRET_KEY` a tu `.env` manualmente con un valor fuerte.**
+- **`SECRET_KEY` viene vacía en `.env.example`.** `routers/auth.py` tiene un fallback hardcodeado (`"biblioteca-secret-key-change-in-production"`), pero si copias `.env.example` a `.env` sin rellenar `SECRET_KEY`, Docker Compose expande la variable como **cadena vacía** (no ausente), por lo que el fallback de Python nunca se activa y el JWT queda firmado con secreto vacío. **Rellena `SECRET_KEY` en tu `.env` con un valor fuerte** (`openssl rand -hex 32`).
 - **Credenciales de admin por defecto**: `ADMIN_USER`/`ADMIN_PASS` tienen fallback `"biblioteca2026"` si no se definen — cámbialas en `.env`.
 
 ## Despliegue
@@ -125,13 +127,13 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 ```bash
 cp .env.example .env
 # editar .env: definir ADMIN_USER, ADMIN_PASS, DB_NAME, DB_USER, DB_PASSWORD,
-# MYSQL_ROOT_PASSWORD, y AÑADIR SECRET_KEY (no viene en el ejemplo, ver arriba)
+# MYSQL_ROOT_PASSWORD, y rellenar SECRET_KEY y KIOSK_API_KEY (vienen vacías, ver arriba)
 docker compose up -d --build
 ```
 
 `docker-compose.yml` levanta dos servicios:
 - **`db`**: `mysql:8.4`, puerto `3306`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`.
-- **`servidor`**: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `ADMIN_USER`, `ADMIN_PASS`.
+- **`servidor`**: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS`.
 
 El backend queda disponible en `http://localhost:8000`, el panel en `http://localhost:8000/` o `/panel`.
 
