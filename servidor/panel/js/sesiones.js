@@ -83,14 +83,14 @@ const Sesiones = {
             const tr = document.createElement('tr');
             if (activa) tr.classList.add('fila-activa');
             tr.innerHTML = `
-                <td>${s.carnet || '<span class="badge-invitado">Invitado</span>'}</td>
-                <td>${s.nombre||'—'}</td>
-                <td>${s.carrera||'—'}</td>
-                <td>${s.pc_nombre||'—'}</td>
-                <td>${s.pc_id}</td>
+                <td>${s.carnet ? escapeHtml(s.carnet) : '<span class="badge-invitado">Invitado</span>'}</td>
+                <td>${escapeHtml(s.nombre) || '—'}</td>
+                <td>${escapeHtml(s.carrera) || '—'}</td>
+                <td>${escapeHtml(s.pc_nombre) || '—'}</td>
+                <td>${escapeHtml(s.pc_id)}</td>
                 <td>${fmtHora(s.hora_inicio)}</td>
                 <td>${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>
-                <td ${activa ? `class="dur-activa" data-hora-inicio="${s.hora_inicio}"` : ''}>${dur}</td>
+                <td ${activa ? `class="dur-activa" data-hora-inicio="${escapeHtml(s.hora_inicio)}"` : ''}>${dur}</td>
             `;
             tbody.appendChild(tr);
         });

@@ -28,13 +28,13 @@ const Estudiantes = {
         datos.forEach(e => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${e.carnet}</td>
-                <td>${e.nombre||'—'}</td>
-                <td>${e.carrera||'—'}</td>
-                <td>${e.facultad||'—'}</td>
-                <td>${e.sexo||'—'}</td>
-                <td>${e.fecha_registro||'—'}</td>
-                <td><button class="btn-edit-est" data-carnet="${e.carnet}">Editar</button></td>
+                <td>${escapeHtml(e.carnet)}</td>
+                <td>${escapeHtml(e.nombre) || '—'}</td>
+                <td>${escapeHtml(e.carrera) || '—'}</td>
+                <td>${escapeHtml(e.facultad) || '—'}</td>
+                <td>${escapeHtml(e.sexo) || '—'}</td>
+                <td>${escapeHtml(e.fecha_registro) || '—'}</td>
+                <td><button class="btn-edit-est" data-carnet="${escapeHtml(e.carnet)}">Editar</button></td>
             `;
             tbody.appendChild(tr);
         });

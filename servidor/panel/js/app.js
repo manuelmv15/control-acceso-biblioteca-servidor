@@ -67,6 +67,12 @@ const App = {
     }
 };
 
+const HTML_ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, c => HTML_ESCAPE_MAP[c]);
+}
+
 function fmtHora(iso) {
     if (!iso) return '—';
     const d = new Date(iso.replace(' ', 'T') + (iso.includes('T') ? '' : 'Z'));
