@@ -1,0 +1,16 @@
+# Override de desarrollo — NO usar en producción.
+#
+# Publica el puerto 3306 de MySQL al host para poder conectarse directo
+# (MySQL Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo
+# local. docker-compose.yml (producción) lo deja sin publicar a propósito
+# (H-007, docs/security-testing-log.md): servidor ya llega a `db` por la
+# red interna de Compose (DB_HOST=db), así que no hay necesidad funcional
+# de exponerlo, y hacerlo amplía la superficie de ataque innecesariamente.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+services:
+  db:
+    ports:
+      - "3306:3306"
