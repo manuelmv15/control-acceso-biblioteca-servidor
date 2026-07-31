@@ -63,3 +63,4 @@ docs/
 *.md
 
 !README.md
+!servidor/db/ESQUEMA.md
