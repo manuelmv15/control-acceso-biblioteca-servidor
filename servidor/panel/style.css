@@ -1,35 +1,40 @@
 /* ==========================================================================
-   VARIABLES DE COLOR Y TIPOGRAFÍA - calcadas del sitio oficial ues.edu.sv
-   Rojo institucional #8B0E13, casi-negro #1A171B (hover), texto gris #696969,
-   fondos blancos/gris muy claro, bordes sutiles #eee. Sin azules ni dorados.
+   VARIABLES DE COLOR Y TIPOGRAFÍA - calcadas del sitio oficial fmp.ues.edu.sv
+   Tokens extraídos del bundle real (--color-primary #8b0e13, tipografías
+   Noto Sans / Roboto, radios y sombras). Sin azules ni dorados.
    ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
 :root {
-    /* Colores Principales */
-    --ues-rojo:      #8B0E13;
-    --ues-rojo-rgb:  139, 14, 19;
-    --ues-negro:     #1A171B;
-    --ues-blanco:    #FFFFFF;
+    /* Colores Principales (idénticos a --color-primary* de fmp.ues.edu.sv) */
+    --ues-rojo:         #8B0E13;
+    --ues-rojo-rgb:     139, 14, 19;
+    --ues-rojo-oscuro:  #6D090C;
+    --ues-rojo-claro:   #AA1419;
+    --ues-rojo-suave:   #FEE2E2;
+    --ues-negro:        #1A171B;
+    --ues-blanco:       #FFFFFF;
 
-    /* UI Neutros (igual que unicamp-color-box-*/text en ues.edu.sv) */
-    --bg-principal:    #F5F5F5;
+    /* UI Neutros (--color-background / --color-surface / --color-gray-* en fmp.ues.edu.sv) */
+    --bg-principal:    #F9F9F9;
     --bg-tarjetas:     #FFFFFF;
-    --texto-principal: #111111;
-    --texto-secundario:#696969;
-    --texto-lighten:   #ABABAB;
-    --borde-sutil:     #EEEEEE;
+    --texto-principal: #111827;
+    --texto-secundario:#374151;
+    --texto-lighten:   #6B7280;
+    --borde-sutil:     #E5E7EB;
 
-    /* Tipografía (fallbacks de sistema para Gordita/Butler) */
-    --font-body:    'Segoe UI', system-ui, sans-serif;
-    --font-heading: Georgia, 'Times New Roman', serif;
+    /* Tipografía (--font-primary / --font-secondary en fmp.ues.edu.sv) */
+    --font-body:    'Roboto', 'Segoe UI', system-ui, sans-serif;
+    --font-heading: 'Noto Sans', 'Segoe UI', system-ui, sans-serif;
 
-    /* Sombras */
-    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-    --radius:    6px;
+    /* Sombras y radios (--shadow-sm/md, --border-radius-md en fmp.ues.edu.sv) */
+    --shadow-sm: 2px 4px 15px -3px rgba(0,0,0,0.1);
+    --shadow-md: 3px 6px 15px -3px rgba(0,0,0,0.1);
+    --radius:    8px;
 
-    /* Semánticos */
-    --color-activo: #2e7d32;
-    --color-libre:  #757575;
+    /* Semánticos (--color-success / --color-warning / --color-danger en fmp.ues.edu.sv) */
+    --color-activo: #16A34A;
+    --color-libre:  #6B7280;
 }
 
 /* ==========================================================================
@@ -48,52 +53,80 @@ body {
 .hidden { display: none !important; }
 
 /* ==========================================================================
-   LOGIN
+   LOGIN — calcado de fmp.ues.edu.sv/auth/login (login-container split en
+   logo-section + form-section, breakpoint desktop en 972px)
    ========================================================================== */
 #login-screen {
     display: flex; align-items: center; justify-content: center;
     background: var(--bg-principal);
+    padding: 1.25rem;
 }
 
-.login-box {
+.login-container {
     background: var(--bg-tarjetas);
-    border: 1px solid var(--borde-sutil);
-    border-radius: var(--radius);
-    padding: 2.5rem;
-    width: 360px;
-    box-shadow: var(--shadow-md);
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(var(--ues-rojo-rgb), 0.12);
+    width: 100%;
+    max-width: 480px;
+    margin: 20px auto;
+    overflow: hidden;
+}
+
+.logo-section-wrapper, .form-section-wrapper { width: 100%; }
+
+.logo-section {
+    background: linear-gradient(145deg, var(--ues-rojo-claro) 0%, var(--ues-rojo) 45%, var(--ues-rojo-oscuro) 100%);
+    color: var(--ues-blanco);
+    padding: 40px 30px 20px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
     text-align: center;
 }
 
-.login-escudo {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 64px; height: 64px; border-radius: 50%;
-    background: var(--ues-negro); color: var(--ues-blanco);
-    font-weight: 900; font-size: 1.2rem; letter-spacing: 0.05em;
-    margin-bottom: 1rem;
-    border: 3px solid var(--ues-rojo);
+.logo-circle {
+    width: 120px; height: 120px; margin-bottom: 20px;
+    background: var(--bg-principal);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
 }
+.logo-circle img { width: 100%; height: 100%; object-fit: contain; }
 
-.login-box h1 { font-family: var(--font-heading); color: var(--ues-rojo); font-size: 1.5rem; margin-bottom: 0.2rem; }
-.login-box h2 { color: var(--texto-secundario); font-size: 0.95rem; font-weight: 400; margin-bottom: 1.5rem; }
+.logo-section h1 { font-family: var(--font-heading); font-size: 24px; font-weight: 700; margin: 0 0 15px; }
+.logo-section p { font-size: 13px; opacity: 0.9; line-height: 1.6; margin-bottom: 0; }
 
-.login-box input {
+.form-section { padding: 30px 20px; background: var(--bg-tarjetas); }
+
+.form-section h2 { font-family: var(--font-heading); font-weight: 700; color: var(--ues-rojo); font-size: 1.3rem; margin-bottom: 0.2rem; text-align: center; }
+.form-section .subtitle { color: var(--texto-secundario); font-size: 0.9rem; font-weight: 400; margin-bottom: 1.5rem; text-align: center; }
+
+.form-section input {
     display: block; width: 100%; padding: 0.65rem 0.9rem; margin-bottom: 0.75rem;
     border: 1px solid var(--borde-sutil); border-radius: var(--radius);
     font-size: 0.95rem; background: var(--bg-principal); color: var(--texto-principal);
 }
-.login-box input:focus { outline: none; border-color: var(--ues-rojo); background: var(--ues-blanco); }
+.form-section input:focus { outline: none; border-color: var(--ues-rojo); background: var(--ues-blanco); }
 
-.login-box button {
+.form-section button {
     width: 100%; padding: 0.7rem;
     background: var(--ues-rojo); color: var(--ues-blanco);
     border: none; border-radius: var(--radius);
     font-size: 1rem; font-weight: 600; cursor: pointer;
     transition: background 0.2s;
 }
-.login-box button:hover { background: var(--ues-negro); }
+.form-section button:hover { background: var(--ues-rojo-oscuro); }
 
 .error { color: var(--ues-rojo); font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+@media (min-width: 972px) {
+    .login-container { max-width: 900px; display: flex; }
+    .logo-section-wrapper { width: 40%; }
+    .form-section-wrapper { width: 60%; }
+    .logo-section { min-height: 100%; padding: 40px 30px; }
+    .logo-circle { width: 100%; height: auto; margin-bottom: 30px; }
+    .logo-section h1 { font-size: 28px; }
+    .logo-section p { font-size: 0.85rem; }
+    .form-section { padding: 40px; }
+}
 
 /* ==========================================================================
    HEADER
@@ -107,17 +140,13 @@ header {
     border-bottom: 3px solid var(--ues-rojo);
 }
 
-.header-brand { display: flex; align-items: center; gap: 0.75rem; }
+.header-brand { display: flex; align-items: center; gap: 0.9rem; }
 
-.header-escudo {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--ues-rojo); color: var(--ues-blanco);
-    font-weight: 900; font-size: 0.7rem; letter-spacing: 0.05em;
-    flex-shrink: 0;
+.header-logo {
+    height: 40px; width: auto; flex-shrink: 0;
 }
 
-header h1 { font-family: var(--font-heading); font-size: 1.05rem; font-weight: 700; }
+header h1 { font-family: var(--font-heading); color: var(--texto-principal); font-size: 1.05rem; font-weight: 700; }
 
 .header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; }
 #pcs-activas-badge {
@@ -244,7 +273,7 @@ header h1 { font-family: var(--font-heading); font-size: 1.05rem; font-weight: 7
     font-weight: 600; cursor: pointer; font-size: 0.875rem;
     transition: background 0.15s;
 }
-.btn-danger:hover { background: var(--ues-negro); }
+.btn-danger:hover { background: var(--ues-rojo-oscuro); }
 
 /* ==========================================================================
    TABLE
@@ -266,31 +295,31 @@ tbody tr:hover { background: var(--bg-principal); }
 tbody tr:last-child td { border-bottom: none; }
 
 .badge-en-sesion {
-    background: #d4edda; color: #155724;
+    background: #DCFCE7; color: #15803D;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 600;
 }
 
 .badge-invitado {
-    background: #fff3cd; color: #856404;
+    background: #FEF3C7; color: #D97706;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 600;
 }
 
 .badge-optimo {
-    background: #d4edda; color: #155724;
+    background: #DCFCE7; color: #15803D;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 600;
 }
 
 .badge-pendiente {
-    background: #fff3cd; color: #856404;
+    background: #FEF3C7; color: #D97706;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 600;
 }
 
 .badge-critico {
-    background: #f8d7da; color: #721c24;
+    background: var(--ues-rojo-suave); color: #DC2626;
     padding: 0.15rem 0.5rem; border-radius: 12px;
     font-size: 0.78rem; font-weight: 700;
 }
@@ -345,7 +374,7 @@ tbody tr:last-child td { border-bottom: none; }
     padding: 0.15rem 0.55rem; border-radius: 20px;
     letter-spacing: 0.06em;
 }
-.pc-activa .pc-badge { background: #fdecea; color: var(--ues-rojo); }
+.pc-activa .pc-badge { background: var(--ues-rojo-suave); color: var(--ues-rojo); }
 .pc-libre  .pc-badge { background: var(--borde-sutil); color: var(--texto-secundario); }
 
 .pc-id { font-size: 0.7rem; color: var(--texto-secundario); padding: 0.3rem 1rem 0; font-family: monospace; }

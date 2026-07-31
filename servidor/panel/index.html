@@ -4,26 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca UES — Panel Administrativo</title>
-    <link rel="stylesheet" href="/panel/style.css?v=8">
+    <link rel="stylesheet" href="/panel/style.css?v=10">
 </head>
 <body>
 
     <div id="login-screen" class="screen">
-        <div class="login-box">
-            <div class="login-escudo">UES</div>
-            <h1>Biblioteca Universitaria</h1>
-            <h2>Panel Administrativo</h2>
-            <input type="text" id="username" placeholder="Usuario" value="admin">
-            <input type="password" id="password" placeholder="Contraseña">
-            <button id="btn-login">Ingresar</button>
-            <p id="login-error" class="error"></p>
+        <div class="login-container">
+            <div class="logo-section-wrapper">
+                <div class="logo-section">
+                    <div class="logo-circle">
+                        <img src="/panel/img/logo-fmp.png" alt="Universidad de El Salvador — Facultad Multidisciplinaria Paracentral">
+                    </div>
+                    <h1>Bienvenido</h1>
+                    <p>Accede al panel para controlar el acceso a la biblioteca</p>
+                </div>
+            </div>
+            <div class="form-section-wrapper">
+                <div class="form-section">
+                    <h2>Biblioteca Universitaria</h2>
+                    <p class="subtitle">Panel Administrativo</p>
+                    <input type="text" id="username" placeholder="Usuario" value="admin">
+                    <input type="password" id="password" placeholder="Contraseña">
+                    <button id="btn-login">Ingresar</button>
+                    <p id="login-error" class="error"></p>
+                </div>
+            </div>
         </div>
     </div>
 
     <div id="panel-screen" class="screen hidden">
         <header>
             <div class="header-brand">
-                <span class="header-escudo">UES</span>
+                <img class="header-logo" src="/panel/img/logo-fmp.png" alt="UES — FMP">
                 <h1>Biblioteca — Control de Acceso</h1>
             </div>
             <div class="header-right">
