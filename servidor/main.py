@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
 from db import init_db
@@ -10,6 +11,28 @@ from routers import auth, sync, estudiantes, reportes, estado, pcs, hardware
 app = FastAPI(title="Biblioteca Control", version="1.0.0")
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+MAX_BODY_SIZE_BYTES = int(os.environ.get("MAX_BODY_SIZE_BYTES") or 5_000_000)
+
+
+class LimitBodySizeMiddleware(BaseHTTPMiddleware):
+    """Rechaza requests con body antes de que FastAPI/Pydantic los procesen.
+
+    Exige `Content-Length` en métodos con body (evita el bypass vía
+    `Transfer-Encoding: chunked` sin ese header) y lo compara contra
+    `MAX_BODY_SIZE_BYTES` sin necesidad de leer el body completo en memoria.
+    """
+
+    async def dispatch(self, request, call_next):
+        if request.method in ("POST", "PUT", "PATCH"):
+            content_length = request.headers.get("content-length")
+            if content_length is None:
+                return Response("Content-Length requerido", status_code=411)
+            if int(content_length) > MAX_BODY_SIZE_BYTES:
+                return Response("Payload demasiado grande", status_code=413)
+        return await call_next(request)
+
+
+app.add_middleware(LimitBodySizeMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

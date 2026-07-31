@@ -34,7 +34,10 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
         });
-        if (!res.ok) throw new Error('Credenciales incorrectas');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Credenciales incorrectas');
+        }
         return res.json();
     }
 };
