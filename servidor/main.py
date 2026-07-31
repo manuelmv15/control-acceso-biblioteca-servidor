@@ -17,8 +17,12 @@ MAX_BODY_SIZE_BYTES = int(os.environ.get("MAX_BODY_SIZE_BYTES") or 5_000_000)
 class LimitBodySizeMiddleware(BaseHTTPMiddleware):
     """Rechaza requests con body antes de que FastAPI/Pydantic los procesen.
 
-    Exige `Content-Length` en métodos con body (evita el bypass vía
-    `Transfer-Encoding: chunked` sin ese header) y lo compara contra
+    Un request sin `Content-Length` ni `Transfer-Encoding` no tiene body
+    (p. ej. `POST /pcs/{id}/mantenimiento`, que el panel llama sin body) y se
+    deja pasar. Si declara `Transfer-Encoding: chunked` sin `Content-Length`
+    se rechaza (411): no hay forma barata de acotar su tamaño sin leerlo
+    completo, y permitirlo abriría el mismo bypass que este middleware busca
+    cerrar. Con `Content-Length` presente, se compara contra
     `MAX_BODY_SIZE_BYTES` sin necesidad de leer el body completo en memoria.
     """
 
@@ -26,8 +30,9 @@ class LimitBodySizeMiddleware(BaseHTTPMiddleware):
         if request.method in ("POST", "PUT", "PATCH"):
             content_length = request.headers.get("content-length")
             if content_length is None:
-                return Response("Content-Length requerido", status_code=411)
-            if int(content_length) > MAX_BODY_SIZE_BYTES:
+                if request.headers.get("transfer-encoding") is not None:
+                    return Response("Content-Length requerido", status_code=411)
+            elif int(content_length) > MAX_BODY_SIZE_BYTES:
                 return Response("Payload demasiado grande", status_code=413)
         return await call_next(request)
 

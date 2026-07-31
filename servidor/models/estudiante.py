@@ -1,12 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
 class Estudiante(BaseModel):
-    nombre: str
-    carnet: str
-    fecha_nacimiento: Optional[str] = None
-    carrera: Optional[str] = None
-    facultad: Optional[str] = None
-    sexo: Optional[str] = None
-    fecha_registro: Optional[str] = None
+    nombre: str = Field(max_length=255)
+    carnet: str = Field(max_length=30)
+    fecha_nacimiento: Optional[str] = Field(default=None, max_length=10)
+    carrera: Optional[str] = Field(default=None, max_length=255)
+    facultad: Optional[str] = Field(default=None, max_length=255)
+    sexo: Optional[str] = Field(default=None, max_length=20)
+    fecha_registro: Optional[str] = Field(default=None, max_length=10)
