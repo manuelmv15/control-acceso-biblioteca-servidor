@@ -9,10 +9,12 @@ from routers import auth, sync, estudiantes, reportes, estado, pcs, hardware
 
 app = FastAPI(title="Biblioteca Control", version="1.0.0")
 
+CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
