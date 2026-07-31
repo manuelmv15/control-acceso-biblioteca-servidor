@@ -35,6 +35,7 @@ services:
       - ADMIN_USER=${ADMIN_USER}
       - ADMIN_PASS=${ADMIN_PASS}
       - KIOSK_API_KEY=${KIOSK_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
       - TZ=America/El_Salvador
     restart: unless-stopped
 
