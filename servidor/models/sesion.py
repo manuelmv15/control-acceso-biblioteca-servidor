@@ -1,18 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
 class Sesion(BaseModel):
-    id: str
-    pc_id: str
-    carnet: Optional[str] = None
-    hora_inicio: str
-    hora_fin: Optional[str] = None
-    fecha: str
+    id: str = Field(max_length=100)
+    pc_id: str = Field(max_length=100)
+    carnet: Optional[str] = Field(default=None, max_length=30)
+    hora_inicio: str = Field(max_length=32)
+    hora_fin: Optional[str] = Field(default=None, max_length=32)
+    fecha: str = Field(max_length=10)
     sincronizado: Optional[int] = 0
-    timestamp_sync: Optional[str] = None
-    nombre: Optional[str] = None
-    carrera: Optional[str] = None
-    facultad: Optional[str] = None
-    sexo: Optional[str] = None
-    fecha_nacimiento: Optional[str] = None
+    timestamp_sync: Optional[str] = Field(default=None, max_length=32)
+    nombre: Optional[str] = Field(default=None, max_length=255)
+    carrera: Optional[str] = Field(default=None, max_length=255)
+    facultad: Optional[str] = Field(default=None, max_length=255)
+    sexo: Optional[str] = Field(default=None, max_length=20)
+    fecha_nacimiento: Optional[str] = Field(default=None, max_length=10)

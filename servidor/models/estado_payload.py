@@ -1,15 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
 class EstadoPayload(BaseModel):
-    pc_id: str
-    pc_nombre: Optional[str] = None
+    pc_id: str = Field(max_length=100)
+    pc_nombre: Optional[str] = Field(default=None, max_length=255)
     sesion_activa: bool
-    carnet: Optional[str] = None
-    nombre: Optional[str] = None
-    hora_inicio: Optional[str] = None
-    carrera: Optional[str] = None
-    facultad: Optional[str] = None
-    sexo: Optional[str] = None
-    fecha_nacimiento: Optional[str] = None
+    carnet: Optional[str] = Field(default=None, max_length=30)
+    nombre: Optional[str] = Field(default=None, max_length=255)
+    hora_inicio: Optional[str] = Field(default=None, max_length=32)
+    carrera: Optional[str] = Field(default=None, max_length=255)
+    facultad: Optional[str] = Field(default=None, max_length=255)
+    sexo: Optional[str] = Field(default=None, max_length=20)
+    fecha_nacimiento: Optional[str] = Field(default=None, max_length=10)
