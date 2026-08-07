@@ -50,9 +50,11 @@ const App = {
 
     async cambiarTab(tab) {
         this.currentTab = tab;
-        document.querySelectorAll('.tab').forEach(b =>
-            b.classList.toggle('active', b.dataset.tab === tab)
-        );
+        document.querySelectorAll('.tab').forEach(b => {
+            const isActive = b.dataset.tab === tab;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-selected', String(isActive));
+        });
         try {
             const res = await fetch(`/panel/views/${tab}.html`, { cache: 'no-store' });
             document.getElementById('tab-container').innerHTML = await res.text();

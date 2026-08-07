@@ -141,9 +141,14 @@ docker compose up -d --build
 
 # producción
 docker compose -f docker-compose.prod.yml up -d --build
+
+# datos de demostración para el panel
+docker compose exec -T servidor python seed_demo.py --reset
 ```
 
 El backend queda disponible en `http://localhost:8000`, el panel en `http://localhost:8000/` o `/panel`.
+
+El seeder crea estudiantes, PCs, hardware, estado en vivo y sesiones históricas para que puedas visualizar tablas, tarjetas y estadísticas sin cargar datos reales. Si quieres repetir la demo desde cero, usa el flag `--reset`.
 
 ### Localmente sin Docker
 
