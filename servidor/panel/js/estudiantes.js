@@ -25,22 +25,41 @@ const Estudiantes = {
         if (!tbody) return;
         tbody.innerHTML = '';
         noEl?.classList.toggle('hidden', datos.length > 0);
-        datos.forEach(e => {
+        datos.forEach((e, index) => {
             const tr = document.createElement('tr');
+            const carnet = escapeHtml(e.carnet);
+            const nombre = escapeHtml(e.nombre) || 'Sin nombre';
+            tr.className = 'student-row';
             tr.innerHTML = `
-                <td>${escapeHtml(e.carnet)}</td>
-                <td>${escapeHtml(e.nombre) || '—'}</td>
-                <td>${escapeHtml(e.carrera) || '—'}</td>
-                <td>${escapeHtml(e.facultad) || '—'}</td>
-                <td>${escapeHtml(e.sexo) || '—'}</td>
-                <td>${escapeHtml(e.fecha_registro) || '—'}</td>
-                <td><button class="btn-edit-est" data-carnet="${escapeHtml(e.carnet)}">Editar</button></td>
+                <td class="student-summary" data-label="Estudiante">
+                    <button class="student-row-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${nombre}">
+                        <span class="student-summary-carnet">${carnet}</span>
+                        <span class="student-summary-name">${nombre}</span>
+                        <span class="student-toggle-indicator" aria-hidden="true">+</span>
+                    </button>
+                </td>
+                <td class="student-name-cell" data-label="Nombre">${nombre}</td>
+                <td data-label="Carrera">${escapeHtml(e.carrera) || '—'}</td>
+                <td data-label="Facultad">${escapeHtml(e.facultad) || '—'}</td>
+                <td data-label="Sexo">${escapeHtml(e.sexo) || '—'}</td>
+                <td data-label="Registro">${escapeHtml(e.fecha_registro) || '—'}</td>
+                <td class="student-action" data-label="Acciones"><button class="btn-edit-est" data-carnet="${carnet}">Editar</button></td>
             `;
             tbody.appendChild(tr);
         });
+        tbody.querySelectorAll('.student-row-toggle').forEach(btn =>
+            btn.addEventListener('click', () => this._toggleFila(btn))
+        );
         tbody.querySelectorAll('.btn-edit-est').forEach(btn =>
             btn.addEventListener('click', () => this._abrirEditar(btn.dataset.carnet))
         );
+    },
+
+    _toggleFila(btn) {
+        if (!window.matchMedia('(max-width: 1024px)').matches) return;
+        const fila = btn.closest('.student-row');
+        const abierta = fila.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(abierta));
     },
 
     _abrirModal(titulo, datos = {}) {

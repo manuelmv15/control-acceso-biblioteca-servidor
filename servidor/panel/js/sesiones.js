@@ -14,20 +14,15 @@ const Sesiones = {
         if (pc)      params.set('pc_id',   pc);
 
         try {
-            const [sesiones, pcsActivas, resumen] = await Promise.all([
+            const [sesiones, resumen] = await Promise.all([
                 API.fetch(`/reportes/sesiones?${params}`),
-                API.fetch('/reportes/pcs-activas'),
                 API.fetch(`/reportes/resumen-dia?fecha=${fecha}`),
             ]);
 
             this.datos = sesiones;
             this._renderResumen(resumen);
-            this._actualizarPcsBadge(pcsActivas.length);
             this._actualizarFiltros(sesiones);
             this.filtrarLocal();
-
-            document.getElementById('last-update').textContent =
-                'Actualizado: ' + new Date().toLocaleTimeString('es-GT');
         } catch (e) { console.error(e); }
     },
 
@@ -81,20 +76,38 @@ const Sesiones = {
                 dur = '—';
             }
             const tr = document.createElement('tr');
-            if (activa) tr.classList.add('fila-activa');
+            const carnet = s.carnet ? escapeHtml(s.carnet) : '<span class="badge-invitado">Invitado</span>';
+            const nombre = escapeHtml(s.nombre) || 'Sin nombre';
+            tr.className = `compact-row${activa ? ' fila-activa' : ''}`;
             tr.innerHTML = `
-                <td>${s.carnet ? escapeHtml(s.carnet) : '<span class="badge-invitado">Invitado</span>'}</td>
-                <td>${escapeHtml(s.nombre) || '—'}</td>
-                <td>${escapeHtml(s.carrera) || '—'}</td>
-                <td>${escapeHtml(s.pc_nombre) || '—'}</td>
-                <td>${escapeHtml(s.pc_id)}</td>
-                <td>${fmtHora(s.hora_inicio)}</td>
-                <td>${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>
-                <td ${activa ? `class="dur-activa" data-hora-inicio="${escapeHtml(s.hora_inicio)}"` : ''}>${dur}</td>
+                <td class="compact-summary" data-label="Sesión">
+                    <button class="table-row-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${nombre}">
+                        <span class="compact-summary-kicker">${carnet}</span>
+                        <span class="compact-summary-title">${nombre}</span>
+                        <span class="table-toggle-indicator" aria-hidden="true">+</span>
+                    </button>
+                </td>
+                <td class="compact-name-cell" data-label="Nombre">${nombre}</td>
+                <td data-label="Carrera">${escapeHtml(s.carrera) || '—'}</td>
+                <td data-label="PC">${escapeHtml(s.pc_nombre) || '—'}</td>
+                <td data-label="ID PC">${escapeHtml(s.pc_id)}</td>
+                <td data-label="Hora inicio">${fmtHora(s.hora_inicio)}</td>
+                <td data-label="Hora fin">${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>
+                <td data-label="Duración" ${activa ? `class="dur-activa" data-hora-inicio="${escapeHtml(s.hora_inicio)}"` : ''}>${dur}</td>
             `;
             tbody.appendChild(tr);
         });
+        tbody.querySelectorAll('.table-row-toggle').forEach(btn =>
+            btn.addEventListener('click', () => this._toggleFila(btn))
+        );
         this._iniciarTicker();
+    },
+
+    _toggleFila(btn) {
+        if (!window.matchMedia('(max-width: 1024px)').matches) return;
+        const fila = btn.closest('.compact-row');
+        const abierta = fila.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(abierta));
     },
 
     _iniciarTicker() {
@@ -120,11 +133,6 @@ const Sesiones = {
             { val: r.pcs_usadas??0,        lbl: 'PCs usadas' },
             { val: r.minutos_promedio ? `${r.minutos_promedio} min` : '—', lbl: 'Promedio / sesión' },
         ].map(i => `<div class="resumen-item"><div class="val">${i.val}</div><div class="lbl">${i.lbl}</div></div>`).join('');
-    },
-
-    _actualizarPcsBadge(n) {
-        document.getElementById('pcs-activas-badge').textContent =
-            `● ${n} PC${n!==1?'s':''} activa${n!==1?'s':''}`;
     },
 
     _actualizarFiltros(datos) {

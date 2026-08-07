@@ -7,9 +7,6 @@ const PCs = {
             ]);
             this._renderGrid(estados);
             this._renderMantenimiento(mantenimiento);
-            const n = estados.filter(p => p.sesion_activa).length;
-            document.getElementById('pcs-activas-badge').textContent =
-                `● ${n} PC${n!==1?'s':''} activa${n!==1?'s':''}`;
         } catch (e) { console.error(e); }
     },
 
@@ -33,19 +30,32 @@ const PCs = {
                     <span class="pc-status-dot"></span>
                     <span class="pc-nombre">${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}</span>
                     <span class="pc-badge">${activa ? 'EN USO' : 'LIBRE'}</span>
+                    <button class="pc-card-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}">+</button>
                 </div>
-                <div class="pc-id">${escapeHtml(pc.pc_id)}</div>
-                ${activa ? `
-                    <div class="pc-usuario">
-                        <div class="pc-dato"><span>Carnet</span><strong>${escapeHtml(pc.carnet) || 'Invitado'}</strong></div>
-                        <div class="pc-dato"><span>Nombre</span><strong>${escapeHtml(pc.nombre) || '—'}</strong></div>
-                        <div class="pc-dato"><span>Desde</span><strong>${pc.hora_inicio ? fmtHora(pc.hora_inicio) : '—'}</strong></div>
-                    </div>
-                ` : '<div class="pc-libre-msg">Disponible</div>'}
-                <div class="pc-footer">Última señal: ${ultima}</div>
+                <div class="pc-card-details">
+                    <div class="pc-id">${escapeHtml(pc.pc_id)}</div>
+                    ${activa ? `
+                        <div class="pc-usuario">
+                            <div class="pc-dato"><span>Carnet</span><strong>${escapeHtml(pc.carnet) || 'Invitado'}</strong></div>
+                            <div class="pc-dato"><span>Nombre</span><strong>${escapeHtml(pc.nombre) || '—'}</strong></div>
+                            <div class="pc-dato"><span>Desde</span><strong>${pc.hora_inicio ? fmtHora(pc.hora_inicio) : '—'}</strong></div>
+                        </div>
+                    ` : '<div class="pc-libre-msg">Disponible</div>'}
+                    <div class="pc-footer">Última señal: ${ultima}</div>
+                </div>
             `;
             grid.appendChild(card);
         });
+        grid.querySelectorAll('.pc-card-toggle').forEach(btn =>
+            btn.addEventListener('click', () => this._toggleCard(btn))
+        );
+    },
+
+    _toggleCard(btn) {
+        if (!window.matchMedia('(max-width: 1024px)').matches) return;
+        const card = btn.closest('.pc-card');
+        const abierta = card.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(abierta));
     },
 
     _fmtDuracion(minutos) {
@@ -86,22 +96,40 @@ const PCs = {
                 : 'Nunca';
             const horas = pc.horas_uso_acumuladas != null ? `${Number(pc.horas_uso_acumuladas).toFixed(1)}h` : '—';
             const tr = document.createElement('tr');
-            if (pc.estado_mantenimiento === 'critico') tr.classList.add('fila-critica');
+            const pcId = escapeHtml(pc.pc_id);
+            const nombre = escapeHtml(pc.nombre) || pcId;
+            tr.className = `compact-row${pc.estado_mantenimiento === 'critico' ? ' fila-critica' : ''}`;
             tr.innerHTML = `
-                <td>${escapeHtml(pc.nombre) || escapeHtml(pc.pc_id)}</td>
-                <td>${ultimo}</td>
-                <td>${this._fmtDuracion(pc.minutos_uso_desde_mantenimiento)}</td>
-                <td>${horas}</td>
-                <td>${this._badgeEstado(pc.estado_mantenimiento)}</td>
-                <td>${this._specsResumen(pc)}</td>
-                <td><button class="btn-secondary btn-mantenimiento" data-pc="${escapeHtml(pc.pc_id)}">Registrar mantenimiento</button></td>
+                <td class="compact-summary" data-label="PC">
+                    <button class="table-row-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${nombre}">
+                        <span class="compact-summary-kicker">${pcId}</span>
+                        <span class="compact-summary-title">${nombre}</span>
+                        <span class="table-toggle-indicator" aria-hidden="true">+</span>
+                    </button>
+                </td>
+                <td data-label="Último mantenimiento">${ultimo}</td>
+                <td data-label="Uso en sesiones">${this._fmtDuracion(pc.minutos_uso_desde_mantenimiento)}</td>
+                <td data-label="Horas encendida">${horas}</td>
+                <td data-label="Estado">${this._badgeEstado(pc.estado_mantenimiento)}</td>
+                <td data-label="Especificaciones">${this._specsResumen(pc)}</td>
+                <td class="compact-action" data-label="Acciones"><button class="btn-secondary btn-mantenimiento" data-pc="${pcId}">Registrar mantenimiento</button></td>
             `;
             tbody.appendChild(tr);
         });
 
+        tbody.querySelectorAll('.table-row-toggle').forEach(btn =>
+            btn.addEventListener('click', () => this._toggleTableRow(btn))
+        );
         tbody.querySelectorAll('.btn-mantenimiento').forEach(btn =>
             btn.addEventListener('click', () => this._registrarMantenimiento(btn.dataset.pc))
         );
+    },
+
+    _toggleTableRow(btn) {
+        if (!window.matchMedia('(max-width: 1024px)').matches) return;
+        const fila = btn.closest('.compact-row');
+        const abierta = fila.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(abierta));
     },
 
     async _registrarMantenimiento(pcId) {

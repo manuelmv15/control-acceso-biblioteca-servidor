@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca UES — Panel Administrativo</title>
-    <link rel="stylesheet" href="/panel/style.css?v=10">
+    <link rel="icon" type="image/png" href="/panel/img/logo-fmp.png">
+    <link rel="stylesheet" href="/panel/style.css?v=15">
 </head>
 <body>
 
@@ -39,26 +40,27 @@
                 <h1>Biblioteca — Control de Acceso</h1>
             </div>
             <div class="header-right">
-                <span id="pcs-activas-badge">● 0 PCs activas</span>
-                <span id="last-update"></span>
-                <button id="btn-logout" class="btn-secondary">Cerrar sesión</button>
+                <button id="btn-logout" class="btn-secondary btn-logout" aria-label="Cerrar sesión">
+                    <span class="logout-icon" aria-hidden="true">⇥</span>
+                    <span>Cerrar sesión</span>
+                </button>
             </div>
         </header>
 
-        <nav class="tabs">
-            <button class="tab active" data-tab="sesiones">Sesiones</button>
-            <button class="tab" data-tab="pcs">PCs</button>
-            <button class="tab" data-tab="estudiantes">Estudiantes</button>
-            <button class="tab" data-tab="estadisticas">Estadísticas</button>
+        <nav class="tabs" aria-label="Secciones del panel" role="tablist">
+            <button class="tab active" data-tab="sesiones" role="tab" aria-selected="true">Sesiones</button>
+            <button class="tab" data-tab="pcs" role="tab" aria-selected="false">PCs</button>
+            <button class="tab" data-tab="estudiantes" role="tab" aria-selected="false">Estudiantes</button>
+            <button class="tab" data-tab="estadisticas" role="tab" aria-selected="false">Estadísticas</button>
         </nav>
 
         <div id="tab-container"></div>
     </div>
 
     <script src="/panel/js/api.js?v=8"></script>
-    <script src="/panel/js/sesiones.js?v=8"></script>
-    <script src="/panel/js/pcs.js?v=8"></script>
-    <script src="/panel/js/estudiantes.js?v=8"></script>
+    <script src="/panel/js/sesiones.js?v=10"></script>
+    <script src="/panel/js/pcs.js?v=10"></script>
+    <script src="/panel/js/estudiantes.js?v=9"></script>
     <script src="/panel/js/estadisticas.js?v=8"></script>
     <script src="/panel/js/app.js?v=8"></script>
 </body>
