@@ -1,20 +1,17 @@
-# Desarrollo — configuración por defecto de `docker compose up`.
+# Producción — archivo standalone, NO es un override (no se combina con -f
+# junto a docker-compose.yml; ese es el de desarrollo, ver ese archivo).
 #
-# Monta ./servidor como volumen y corre uvicorn con --reload, así que los
-# cambios en el código se reflejan sin reconstruir la imagen. Publica además
-# el puerto 3306 de MySQL al host para poder conectarte directo (MySQL
-# Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo local.
+# No expone el puerto de MySQL al host: `servidor` llega a `db` por la red
+# interna de Compose (DB_HOST=db), así que no hay necesidad funcional de
+# publicarlo, y hacerlo amplía la superficie de ataque innecesariamente
+# (H-007, docs/security-testing-log.md).
 #
-# Para producción usa el archivo standalone docker-compose.prod.yml (no se
-# combina con este vía -f, es autosuficiente):
+# Tampoco monta el código como volumen ni corre con --reload: la imagen se
+# construye con el código ya copiado dentro (servidor/Dockerfile) y uvicorn
+# corre sin --reload, como en cualquier build de producción.
+#
+# Uso:
 #   docker compose -f docker-compose.prod.yml up -d --build
-#
-# dns_search: [.] en ambos servicios evita que se herede el search domain
-# de Tailscale (p. ej. "taile278cb.ts.net") desde /etc/resolv.conf del host.
-# Sin esto, el resolver de glibc en el contenedor `servidor` intenta primero
-# "db.<search-domain>" contra el DNS de Tailscale antes que el nombre "db"
-# simple, y esa consulta externa cuelga/falla, provocando
-# "Temporary failure in name resolution" y un crash-loop al conectar a MySQL.
 
 services:
   db:
@@ -26,8 +23,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: America/El_Salvador
-    ports:
-      - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -35,13 +30,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    dns_search:
-      - .
 
   servidor:
     build: ./servidor
     restart: unless-stopped
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
     depends_on:
@@ -63,10 +55,6 @@ services:
       MAX_BODY_SIZE_BYTES: ${MAX_BODY_SIZE_BYTES}
       SYNC_MAX_SESIONES: ${SYNC_MAX_SESIONES}
       TZ: America/El_Salvador
-    volumes:
-      - ./servidor:/app
-    dns_search:
-      - .
 
 volumes:
   db_data:

@@ -124,16 +124,24 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 
 ### Con Docker Compose (recomendado)
 
+Hay dos archivos independientes, ninguno se combina con el otro vía `-f`:
+
+- **`docker-compose.yml`** — desarrollo, es el que corre `docker compose up` por defecto. Monta `./servidor` como volumen y corre `uvicorn --reload` (los cambios en el código se reflejan sin reconstruir), y publica el puerto `3306` de MySQL al host (`3307:3306`) para conectarte directo con MySQL Workbench, `mysql` CLI, etc.
+- **`docker-compose.prod.yml`** — producción, standalone. No monta código (la imagen ya lo trae copiado) ni corre con `--reload`, y **no publica el puerto de MySQL** al host: `servidor` llega a `db` por la red interna de Compose (`DB_HOST=db`), así que exponerlo solo ampliaría la superficie de ataque sin necesidad funcional (H-007, `docs/security-testing-log.md`).
+
+Ambos levantan los mismos dos servicios (`db`: `mysql:8.4`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`; `servidor`: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS`, y el resto de variables opcionales).
+
 ```bash
 cp .env.example .env
 # editar .env: definir ADMIN_USER, ADMIN_PASS, DB_NAME, DB_USER, DB_PASSWORD,
 # MYSQL_ROOT_PASSWORD, y rellenar SECRET_KEY y KIOSK_API_KEY (vienen vacías, ver arriba)
-docker compose up -d --build
-```
 
-`docker-compose.yml` levanta dos servicios:
-- **`db`**: `mysql:8.4`, puerto `3306`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`.
-- **`servidor`**: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS`.
+# desarrollo
+docker compose up -d --build
+
+# producción
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
 El backend queda disponible en `http://localhost:8000`, el panel en `http://localhost:8000/` o `/panel`.
 
