@@ -38,10 +38,10 @@ const Sesiones = {
 
     exportarCSV() {
         const fecha = document.getElementById('filter-fecha')?.value || 'hoy';
-        const headers = ['Carnet','Nombre','Carrera','Facultad','PC','ID PC','Hora inicio','Hora fin','Minutos'];
+        const headers = ['Carnet','Nombre','Carrera','Facultad','PC','Hora inicio','Hora fin','Minutos'];
         const rows = this.datos.map(s => [
             s.carnet||'Invitado', s.nombre||'', s.carrera||'', s.facultad||'',
-            s.pc_nombre||'', s.pc_id, s.hora_inicio, s.hora_fin||'', s.minutos??''
+            s.pc_nombre||s.pc_id||'', s.hora_inicio, s.hora_fin||'', s.minutos??''
         ]);
         const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -89,8 +89,7 @@ const Sesiones = {
                 </td>
                 <td class="compact-name-cell" data-label="Nombre">${nombre}</td>
                 <td data-label="Carrera">${escapeHtml(s.carrera) || '—'}</td>
-                <td data-label="PC">${escapeHtml(s.pc_nombre) || '—'}</td>
-                <td data-label="ID PC">${escapeHtml(s.pc_id)}</td>
+                <td data-label="PC">${escapeHtml(s.pc_nombre) || escapeHtml(s.pc_id) || '—'}</td>
                 <td data-label="Hora inicio">${fmtHora(s.hora_inicio)}</td>
                 <td data-label="Hora fin">${activa ? '<span class="badge-en-sesion">● En sesión</span>' : fmtHora(s.hora_fin)}</td>
                 <td data-label="Duración" ${activa ? `class="dur-activa" data-hora-inicio="${escapeHtml(s.hora_inicio)}"` : ''}>${dur}</td>
@@ -139,7 +138,11 @@ const Sesiones = {
         const uniq = (key) => [...new Set(datos.map(d => d[key]).filter(Boolean))].sort();
         actualizarSelect('filter-carrera', uniq('carrera'), 'Todas las carreras');
         actualizarSelect('filter-facultad', uniq('facultad'), 'Todas las facultades');
-        actualizarSelect('filter-pc', uniq('pc_id'), 'Todas las PCs');
+
+        const pcsPorId = new Map();
+        datos.forEach(d => { if (d.pc_id) pcsPorId.set(d.pc_id, d.pc_nombre || d.pc_id); });
+        const pcs = [...pcsPorId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+        actualizarSelect('filter-pc', pcs, 'Todas las PCs');
     },
 
     init() {

@@ -87,9 +87,11 @@ function actualizarSelect(id, opciones, placeholder) {
     const actual = sel.value;
     sel.innerHTML = `<option value="">${placeholder}</option>`;
     opciones.forEach(o => {
+        // Cada opción puede ser un string (valor = etiqueta) o un par [valor, etiqueta].
+        const [valor, etiqueta] = Array.isArray(o) ? o : [o, o];
         const opt = document.createElement('option');
-        opt.value = o; opt.textContent = o;
-        if (o === actual) opt.selected = true;
+        opt.value = valor; opt.textContent = etiqueta;
+        if (valor === actual) opt.selected = true;
         sel.appendChild(opt);
     });
 }

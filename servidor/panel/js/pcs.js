@@ -33,7 +33,6 @@ const PCs = {
                     <button class="pc-card-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}">+</button>
                 </div>
                 <div class="pc-card-details">
-                    <div class="pc-id">${escapeHtml(pc.pc_id)}</div>
                     ${activa ? `
                         <div class="pc-usuario">
                             <div class="pc-dato"><span>Carnet</span><strong>${escapeHtml(pc.carnet) || 'Invitado'}</strong></div>
@@ -102,7 +101,6 @@ const PCs = {
             tr.innerHTML = `
                 <td class="compact-summary" data-label="PC">
                     <button class="table-row-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${nombre}">
-                        <span class="compact-summary-kicker">${pcId}</span>
                         <span class="compact-summary-title">${nombre}</span>
                         <span class="table-toggle-indicator" aria-hidden="true">+</span>
                     </button>
@@ -112,7 +110,7 @@ const PCs = {
                 <td data-label="Horas encendida">${horas}</td>
                 <td data-label="Estado">${this._badgeEstado(pc.estado_mantenimiento)}</td>
                 <td data-label="Especificaciones">${this._specsResumen(pc)}</td>
-                <td class="compact-action" data-label="Acciones"><button class="btn-secondary btn-mantenimiento" data-pc="${pcId}">Registrar mantenimiento</button></td>
+                <td class="compact-action" data-label="Acciones"><button class="btn-secondary btn-mantenimiento" data-pc="${pcId}" data-nombre="${nombre}">Registrar mantenimiento</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -121,7 +119,7 @@ const PCs = {
             btn.addEventListener('click', () => this._toggleTableRow(btn))
         );
         tbody.querySelectorAll('.btn-mantenimiento').forEach(btn =>
-            btn.addEventListener('click', () => this._registrarMantenimiento(btn.dataset.pc))
+            btn.addEventListener('click', () => this._registrarMantenimiento(btn.dataset.pc, btn.dataset.nombre))
         );
     },
 
@@ -132,8 +130,8 @@ const PCs = {
         btn.setAttribute('aria-expanded', String(abierta));
     },
 
-    async _registrarMantenimiento(pcId) {
-        if (!confirm(`¿Confirmar que se realizó mantenimiento en ${pcId}?`)) return;
+    async _registrarMantenimiento(pcId, nombre) {
+        if (!confirm(`¿Confirmar que se realizó mantenimiento en ${nombre || pcId}?`)) return;
         try {
             await API.fetchRaw(`/pcs/${pcId}/mantenimiento`, { method: 'POST' });
             this.cargar();

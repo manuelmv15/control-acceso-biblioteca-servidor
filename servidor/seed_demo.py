@@ -115,7 +115,7 @@ def build_session_rows(students: list[Student], count: int) -> list[dict[str, ob
         student = RNG.choice(students)
         pc_id, pc_nombre, *_ = RNG.choice(PCS)
         inicio = now - timedelta(days=RNG.randint(0, 29), hours=RNG.randint(0, 8), minutes=RNG.randint(0, 59))
-        duration_minutes = RNG.randint(20, 180)
+        duration_minutes = RNG.randint(10, 60)  # ninguna sesión dura más de una hora
         hora_fin = inicio + timedelta(minutes=duration_minutes)
         sincronizado = 1
         timestamp_sync = (hora_fin + timedelta(minutes=RNG.randint(1, 120))).isoformat(sep=" ", timespec="seconds")
@@ -213,7 +213,7 @@ def seed_estado(conn, students: list[Student]) -> None:
                 1 if active else 0,
                 student.carnet if student else None,
                 student.nombre if student else None,
-                (now - timedelta(minutes=RNG.randint(5, 140))).isoformat(sep=" ", timespec="seconds") if active else None,
+                (now - timedelta(minutes=RNG.randint(5, 55))).isoformat(sep=" ", timespec="seconds") if active else None,
                 now.isoformat(sep=" ", timespec="seconds"),
             ),
         )
