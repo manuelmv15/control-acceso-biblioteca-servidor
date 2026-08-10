@@ -42,7 +42,7 @@ const Estadisticas = {
             this._renderPorSexo(data.por_sexo);
             this._renderHBar('chart-por-carrera', data.por_carrera, 'carrera', 'sesiones');
             this._renderHBar('chart-por-facultad', data.por_facultad, 'facultad', 'sesiones');
-            this._renderHBar('chart-por-pc', data.por_pc, 'pc_id', 'sesiones');
+            this._renderHBar('chart-por-pc', data.por_pc, 'pc_nombre', 'sesiones');
         } catch (e) {
             console.error('Error cargando estadísticas:', e);
         }

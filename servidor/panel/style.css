@@ -340,7 +340,6 @@ tbody tr:last-child td { border-bottom: none; }
     appearance: none; border: 0; background: transparent; color: inherit;
     font: inherit; text-align: left; cursor: default;
 }
-.maintenance-table .compact-summary-kicker { display: none; }
 .maintenance-table .compact-summary-title { display: inline; }
 
 .badge-en-sesion {
@@ -426,8 +425,6 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .pc-activa .pc-badge { background: var(--ues-rojo-suave); color: var(--ues-rojo); }
 .pc-libre  .pc-badge { background: var(--borde-sutil); color: var(--texto-secundario); }
-
-.pc-id { font-size: 0.7rem; color: var(--texto-secundario); padding: 0.3rem 1rem 0; font-family: monospace; }
 
 .pc-usuario { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
 .pc-dato { display: flex; justify-content: space-between; font-size: 0.85rem; }
@@ -719,7 +716,6 @@ tbody tr:last-child td { border-bottom: none; }
         font-weight: 800;
         color: var(--texto-principal);
     }
-    .maintenance-table .compact-summary-kicker { display: block; }
     .maintenance-table .compact-summary-title { display: block; }
     .table-toggle-indicator {
         display: grid;

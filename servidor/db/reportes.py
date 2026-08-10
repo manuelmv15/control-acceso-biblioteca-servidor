@@ -156,10 +156,11 @@ def estadisticas(desde=None, hasta=None):
         """, (desde_date, hasta_date)).fetchall()
 
         por_pc = conn.execute("""
-            SELECT pc_id, COUNT(*) AS sesiones, COUNT(DISTINCT carnet) AS estudiantes
-            FROM sesiones
-            WHERE fecha BETWEEN %s AND %s
-            GROUP BY pc_id ORDER BY sesiones DESC
+            SELECT COALESCE(p.nombre, s.pc_id) AS pc_nombre, COUNT(*) AS sesiones, COUNT(DISTINCT s.carnet) AS estudiantes
+            FROM sesiones s
+            LEFT JOIN pcs p ON p.pc_id = s.pc_id
+            WHERE s.fecha BETWEEN %s AND %s
+            GROUP BY s.pc_id, p.nombre ORDER BY sesiones DESC
         """, (desde_date, hasta_date)).fetchall()
 
         totales = conn.execute("""
