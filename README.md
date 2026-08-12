@@ -62,7 +62,10 @@ No existe un sistema formal de migraciones (Alembic, etc.): los cambios de esque
 > 🔒 Desde 2026-07-30 (remediación de H-001, ver `docs/security-testing-log.md`), todo endpoint marcado con 🔒 requiere `Authorization: Bearer <token>` válido (obtenido en `/auth/login`) y devuelve 401 si falta o es inválido. Los marcados como **kiosko** son intencionalmente públicos porque el cliente de escritorio no maneja JWT — ver sección de Seguridad.
 
 ### `POST /auth/login`
-Body `{username, password}` → `{access_token, token_type}`. Compara contra `ADMIN_USER`/`ADMIN_PASS`. 401 si no coincide.
+Body `{username, password}` → `{access_token, token_type}`. Compara contra la tabla `admins` en la base de datos (ver sección de Seguridad). 401 si no coincide.
+
+### `PUT /auth/password` 🔒
+Body `{password_actual, password_nueva}` → `{ok: true}`. Permite al administrador autenticado cambiar su propia contraseña (mínimo 8 caracteres). 401 si `password_actual` no coincide.
 
 ### `POST /sync` — kiosko, público
 Body `{pc_id, pc_nombre?, ip?, sesiones: [Sesion]}` → `{recibidos, insertados, timestamp}`.
@@ -118,7 +121,9 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 - **Auth de servicio para el kiosko en `/estudiantes` (H-011, resuelto).** `POST /estudiantes`, `GET /estudiantes/{carnet}` y `PUT /estudiantes/{carnet}` usan `require_kiosk_or_admin`: aceptan el JWT de admin **o** el header `X-Kiosk-Key` comparado contra `KIOSK_API_KEY`. Si `KIOSK_API_KEY` no está configurada, esa vía queda siempre cerrada. El kiosko debe tener el mismo valor en `cliente/config.ini` (`[servidor] kiosk_key`). `GET /estudiantes` y `DELETE /estudiantes/{carnet}` siguen siendo solo-admin.
 - **CORS totalmente abierto**: `allow_origins=["*"]` combinado con `allow_credentials=True` en `main.py` (combinación que, además, los navegadores ignoran por spec cuando se piden credenciales).
 - **`SECRET_KEY` viene vacía en `.env.example`.** `routers/auth.py` tiene un fallback hardcodeado (`"biblioteca-secret-key-change-in-production"`), pero si copias `.env.example` a `.env` sin rellenar `SECRET_KEY`, Docker Compose expande la variable como **cadena vacía** (no ausente), por lo que el fallback de Python nunca se activa y el JWT queda firmado con secreto vacío. **Rellena `SECRET_KEY` en tu `.env` con un valor fuerte** (`openssl rand -hex 32`).
-- **Credenciales de admin por defecto**: `ADMIN_USER`/`ADMIN_PASS` tienen fallback `"biblioteca2026"` si no se definen — cámbialas en `.env`.
+- **Credenciales de admin: viven en la base de datos, no en el `.env`.** Hay una tabla `admins` (`username`, `password_hash`) — `POST /auth/login` compara contra ella, no contra variables de entorno. `ADMIN_USER`/`ADMIN_PASS_HASH` en el `.env` solo se usan **una vez**, para sembrar el primer administrador si la tabla está vacía (`db/schema.py::_sembrar_admin_inicial`); después de eso quedan obsoletas — cambiarlas en el `.env` y reiniciar el servidor **no** cambia la contraseña real. Así quien hace el despliegue puede fijar unas credenciales iniciales conocidas, y el administrador real las cambia desde el panel (botón "Cambiar contraseña", `PUT /auth/password`) sin que quien desplegó llegue a conocer la contraseña definitiva.
+  - `ADMIN_PASS_HASH` **no es la contraseña en texto plano**, es un hash PBKDF2-HMAC-SHA256 (`pbkdf2_sha256$<iteraciones>$<salt>$<hash>`, 600 000 iteraciones — recomendación OWASP 2023+). Generalo con `python3 servidor/generar_hash_admin.py` (útil sobre todo si querés fijar una contraseña inicial custom sin exponerla a quien despliega; mismo principio que el PIN de administrador del kiosko, ver `biblioteca_cliente/cliente/setup.py`) o dejá el valor de ejemplo del `.env.example` y cambiala desde el panel en el primer login.
+  - Si la tabla `admins` queda vacía y `ADMIN_USER`/`ADMIN_PASS_HASH` no están configuradas (o el hash tiene formato inválido), el servidor arranca igual pero loguea una advertencia: nadie podrá iniciar sesión hasta sembrar un admin (por `.env` + reinicio, o insertándolo manualmente en la tabla).
 
 ## Despliegue
 
@@ -129,12 +134,18 @@ Hay dos archivos independientes, ninguno se combina con el otro vía `-f`:
 - **`docker-compose.yml`** — desarrollo, es el que corre `docker compose up` por defecto. Monta `./servidor` como volumen y corre `uvicorn --reload` (los cambios en el código se reflejan sin reconstruir), y publica el puerto `3306` de MySQL al host (`3307:3306`) para conectarte directo con MySQL Workbench, `mysql` CLI, etc.
 - **`docker-compose.prod.yml`** — producción, standalone. No monta código (la imagen ya lo trae copiado) ni corre con `--reload`, y **no publica el puerto de MySQL** al host: `servidor` llega a `db` por la red interna de Compose (`DB_HOST=db`), así que exponerlo solo ampliaría la superficie de ataque sin necesidad funcional (H-007, `docs/security-testing-log.md`).
 
-Ambos levantan los mismos dos servicios (`db`: `mysql:8.4`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`; `servidor`: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS`, y el resto de variables opcionales).
+Ambos levantan los mismos dos servicios (`db`: `mysql:8.4`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`; `servidor`: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS_HASH`, y el resto de variables opcionales).
 
 ```bash
 cp .env.example .env
-# editar .env: definir ADMIN_USER, ADMIN_PASS, DB_NAME, DB_USER, DB_PASSWORD,
-# MYSQL_ROOT_PASSWORD, y rellenar SECRET_KEY y KIOSK_API_KEY (vienen vacías, ver arriba)
+# editar .env: definir DB_NAME, DB_USER, DB_PASSWORD, MYSQL_ROOT_PASSWORD,
+# y rellenar SECRET_KEY y KIOSK_API_KEY (vienen vacías, ver arriba)
+#
+# ADMIN_USER/ADMIN_PASS_HASH ya traen un valor de ejemplo (contraseña inicial
+# "cambiar-esta-contrasena") — dejalos así y cambiá la contraseña desde el
+# panel en el primer login, o generá tu propio hash inicial sin exponer la
+# contraseña a quien despliega:
+#   python3 servidor/generar_hash_admin.py
 
 # desarrollo
 docker compose up -d --build

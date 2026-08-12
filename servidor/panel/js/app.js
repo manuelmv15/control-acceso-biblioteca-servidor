@@ -12,6 +12,7 @@ const App = {
         document.querySelectorAll('.tab').forEach(btn =>
             btn.addEventListener('click', () => this.cambiarTab(btn.dataset.tab))
         );
+        Cuenta.init();
 
         if (API.loadToken()) await this.mostrarPanel();
     },
