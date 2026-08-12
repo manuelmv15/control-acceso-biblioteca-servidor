@@ -1,4 +1,12 @@
+import logging
+import os
+import re
+
 from .connection import conexion
+
+log = logging.getLogger("uvicorn.error")
+
+_HASH_RE = re.compile(r"^pbkdf2_sha256\$\d+\$[0-9a-f]+\$[0-9a-f]+$")
 
 
 def _tiene_columna(conn, tabla, columna):
@@ -66,6 +74,12 @@ def init_db():
                 CONSTRAINT fk_estado_pcs_estudiante FOREIGN KEY (carnet) REFERENCES estudiantes(carnet) ON DELETE SET NULL
             ) ENGINE=InnoDB;
 
+            CREATE TABLE IF NOT EXISTS admins (
+                username VARCHAR(100) PRIMARY KEY,
+                password_hash VARCHAR(255) NOT NULL,
+                actualizado DATETIME
+            ) ENGINE=InnoDB;
+
             CREATE TABLE IF NOT EXISTS pcs_hardware (
                 pc_id VARCHAR(100) PRIMARY KEY,
                 hostname VARCHAR(255),
@@ -104,3 +118,43 @@ def init_db():
             conn.execute("ALTER TABLE estudiantes DROP COLUMN fecha_nacimiento")
             conn.execute("ALTER TABLE estudiantes CHANGE COLUMN fecha_nacimiento_new fecha_nacimiento YEAR")
         conn.commit()
+
+        _sembrar_admin_inicial(conn)
+
+
+def _sembrar_admin_inicial(conn):
+    """Crea el primer administrador si la tabla `admins` está vacía, usando
+    `ADMIN_USER`/`ADMIN_PASS_HASH` del entorno como valor de arranque único.
+
+    A partir de acá las credenciales viven en la base de datos, no en el
+    `.env`: el panel expone `PUT /auth/password` para que el propio
+    administrador las cambie después de este primer login — así quien
+    despliega la app puede fijar unas credenciales iniciales sin que sean
+    las que se usan a largo plazo."""
+    if conn.execute("SELECT 1 FROM admins LIMIT 1").fetchone():
+        return
+
+    username = os.environ.get("ADMIN_USER", "")
+    password_hash = os.environ.get("ADMIN_PASS_HASH", "")
+    if not username or not password_hash:
+        log.warning(
+            "No hay administradores en la base de datos y ADMIN_USER/ADMIN_PASS_HASH "
+            "no están configurados en el .env: nadie podrá iniciar sesión en el panel "
+            "hasta que se inserte un admin manualmente o se configuren esas variables "
+            "y se reinicie el servidor."
+        )
+        return
+    if not _HASH_RE.match(password_hash):
+        log.warning(
+            "ADMIN_PASS_HASH no tiene el formato esperado (pbkdf2_sha256$...); "
+            "generalo con 'python3 servidor/generar_hash_admin.py'. No se creó el "
+            "administrador inicial."
+        )
+        return
+
+    conn.execute(
+        "INSERT INTO admins (username, password_hash, actualizado) VALUES (%s, %s, NOW())",
+        (username, password_hash),
+    )
+    conn.commit()
+    log.info("Administrador inicial '%s' creado a partir de ADMIN_USER/ADMIN_PASS_HASH.", username)

@@ -40,6 +40,9 @@
                 <h1>Biblioteca — Control de Acceso</h1>
             </div>
             <div class="header-right">
+                <button id="btn-cambiar-pass" class="btn-secondary" aria-label="Cambiar contraseña">
+                    <span>Cambiar contraseña</span>
+                </button>
                 <button id="btn-logout" class="btn-secondary btn-logout" aria-label="Cerrar sesión">
                     <span class="logout-icon" aria-hidden="true">⇥</span>
                     <span>Cerrar sesión</span>
@@ -57,11 +60,35 @@
         <div id="tab-container"></div>
     </div>
 
-    <script src="/panel/js/api.js?v=8"></script>
+    <div id="modal-cuenta" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>Cambiar contraseña</h3>
+            <div class="modal-form">
+                <label>Contraseña actual
+                    <input type="password" id="cuenta-pass-actual" autocomplete="current-password">
+                </label>
+                <label>Contraseña nueva
+                    <input type="password" id="cuenta-pass-nueva" autocomplete="new-password" minlength="8">
+                </label>
+                <label>Confirmar contraseña nueva
+                    <input type="password" id="cuenta-pass-confirmar" autocomplete="new-password" minlength="8">
+                </label>
+            </div>
+            <p id="modal-cuenta-error" class="error"></p>
+            <p id="modal-cuenta-ok" class="success hidden">Contraseña actualizada.</p>
+            <div class="modal-actions">
+                <button id="btn-cuenta-guardar" class="btn-danger">Guardar</button>
+                <button id="btn-cuenta-cancelar" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/panel/js/api.js?v=9"></script>
     <script src="/panel/js/sesiones.js?v=10"></script>
     <script src="/panel/js/pcs.js?v=10"></script>
     <script src="/panel/js/estudiantes.js?v=9"></script>
     <script src="/panel/js/estadisticas.js?v=8"></script>
-    <script src="/panel/js/app.js?v=8"></script>
+    <script src="/panel/js/cuenta.js?v=1"></script>
+    <script src="/panel/js/app.js?v=9"></script>
 </body>
 </html>

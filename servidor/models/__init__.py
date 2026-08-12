@@ -3,7 +3,7 @@ from .sesion import Sesion
 from .sync_payload import SyncPayload
 from .estado_payload import EstadoPayload
 from .hardware_payload import HardwarePayload
-from .auth import LoginRequest, Token
+from .auth import LoginRequest, Token, CambiarPasswordRequest
 
 __all__ = [
     "Estudiante",
@@ -13,4 +13,5 @@ __all__ = [
     "HardwarePayload",
     "LoginRequest",
     "Token",
+    "CambiarPasswordRequest",
 ]

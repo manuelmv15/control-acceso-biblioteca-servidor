@@ -28,6 +28,13 @@ const API = {
         return res.status === 204 ? null : res.json();
     },
 
+    async cambiarPassword(passwordActual, passwordNueva) {
+        return this.fetchRaw('/auth/password', {
+            method: 'PUT',
+            body: { password_actual: passwordActual, password_nueva: passwordNueva },
+        });
+    },
+
     async login(username, password) {
         const res = await fetch('/auth/login', {
             method: 'POST',
