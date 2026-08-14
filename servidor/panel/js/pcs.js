@@ -17,29 +17,33 @@ const PCs = {
         grid.innerHTML = '';
         noEl?.classList.toggle('hidden', pcs.length > 0);
 
+        const CLASES = { en_uso: 'pc-activa', disponible: 'pc-disponible', no_disponible: 'pc-no-disponible' };
+        const ETIQUETAS = { en_uso: 'EN USO', disponible: 'DISPONIBLE', no_disponible: 'NO DISPONIBLE' };
+        const MENSAJES = { disponible: 'Disponible', no_disponible: 'Sin conexión con la PC' };
+
         pcs.forEach(pc => {
-            const activa = !!pc.sesion_activa;
+            const estado = pc.estado_pc || (pc.sesion_activa ? 'en_uso' : 'disponible');
             const ultima = pc.ultima_actualizacion
                 ? new Date(pc.ultima_actualizacion + 'Z').toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })
                 : '—';
 
             const card = document.createElement('div');
-            card.className = 'pc-card ' + (activa ? 'pc-activa' : 'pc-libre');
+            card.className = 'pc-card ' + CLASES[estado];
             card.innerHTML = `
                 <div class="pc-header">
                     <span class="pc-status-dot"></span>
                     <span class="pc-nombre">${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}</span>
-                    <span class="pc-badge">${activa ? 'EN USO' : 'LIBRE'}</span>
+                    <span class="pc-badge">${ETIQUETAS[estado]}</span>
                     <button class="pc-card-toggle" type="button" aria-expanded="false" aria-label="Ver detalles de ${escapeHtml(pc.pc_nombre) || escapeHtml(pc.pc_id)}">+</button>
                 </div>
                 <div class="pc-card-details">
-                    ${activa ? `
+                    ${estado === 'en_uso' ? `
                         <div class="pc-usuario">
                             <div class="pc-dato"><span>Carnet</span><strong>${escapeHtml(pc.carnet) || 'Invitado'}</strong></div>
                             <div class="pc-dato"><span>Nombre</span><strong>${escapeHtml(pc.nombre) || '—'}</strong></div>
                             <div class="pc-dato"><span>Desde</span><strong>${pc.hora_inicio ? fmtHora(pc.hora_inicio) : '—'}</strong></div>
                         </div>
-                    ` : '<div class="pc-libre-msg">Disponible</div>'}
+                    ` : `<div class="pc-libre-msg">${MENSAJES[estado]}</div>`}
                     <div class="pc-footer">Última señal: ${ultima}</div>
                 </div>
             `;

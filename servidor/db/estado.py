@@ -2,6 +2,7 @@ from datetime import datetime
 from .connection import conexion
 from . import pcs as db_pcs
 from .estudiantes import upsert_desde_sesion
+from .umbrales import UMBRAL_DISPONIBLE_MINUTOS
 
 
 def actualizar_estado(payload):
@@ -44,7 +45,14 @@ def actualizar_estado(payload):
 
 def listar_estados():
     with conexion() as conn:
-        rows = conn.execute(
-            "SELECT * FROM estado_pcs ORDER BY pc_nombre"
-        ).fetchall()
+        rows = conn.execute(f"""
+            SELECT *,
+                CASE
+                    WHEN sesion_activa = 1 THEN 'en_uso'
+                    WHEN ultima_actualizacion >= NOW() - INTERVAL {UMBRAL_DISPONIBLE_MINUTOS} MINUTE THEN 'disponible'
+                    ELSE 'no_disponible'
+                END AS estado_pc
+            FROM estado_pcs
+            ORDER BY pc_nombre
+        """).fetchall()
         return [dict(r) for r in rows]
