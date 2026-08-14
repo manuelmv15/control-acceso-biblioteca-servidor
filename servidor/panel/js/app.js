@@ -14,7 +14,11 @@ const App = {
         );
         Cuenta.init();
 
-        if (API.loadToken()) await this.mostrarPanel();
+        if (API.loadToken()) {
+            await this.mostrarPanel();
+        } else {
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
     },
 
     async login() {
@@ -97,4 +101,4 @@ function actualizarSelect(id, opciones, placeholder) {
     });
 }
 
-window.addEventListener('load', () => App.init());
+document.addEventListener('DOMContentLoaded', () => App.init());
