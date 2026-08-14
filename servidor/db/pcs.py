@@ -29,6 +29,16 @@ def registrar_mantenimiento(pc_id):
             "UPDATE pcs SET ultimo_mantenimiento = %s WHERE pc_id = %s",
             (datetime.now().isoformat(), pc_id),
         )
+        # El agente de hardware del cliente resetea su acumulador local al
+        # detectar un nuevo ultimo_mantenimiento, pero eso solo se refleja
+        # aquí en el próximo heartbeat. Reseteamos ya mismo el valor
+        # guardado para que estado_mantenimiento vuelva a "optimo" de
+        # inmediato en vez de quedarse en "critico"/"pendiente" hasta esa
+        # siguiente lectura.
+        conn.execute(
+            "UPDATE pcs_hardware SET horas_uso_acumuladas = 0 WHERE pc_id = %s",
+            (pc_id,),
+        )
         conn.commit()
         return cursor.rowcount > 0
 
