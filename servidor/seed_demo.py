@@ -23,6 +23,8 @@ from db.schema import init_db
 SEED = 20260807
 RNG = random.Random(SEED)
 
+LETRAS_CARNET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 FACULTADES = {
     "Ing. de Sistemas": ["Ingeniería de Sistemas y Computación", "Ciencias de la Computación"],
@@ -80,6 +82,13 @@ def choose_faculty_and_career() -> tuple[str, str]:
     return facultad, carrera
 
 
+def _generar_carnet() -> str:
+    """Formato AA##### (dos letras y cinco números), igual al que exige el cliente."""
+    letras = f"{RNG.choice(LETRAS_CARNET)}{RNG.choice(LETRAS_CARNET)}"
+    numero = RNG.randint(0, 99999)
+    return f"{letras}{numero:05d}"
+
+
 def build_students(count: int) -> list[Student]:
     students: list[Student] = []
     used_carnets: set[str] = set()
@@ -88,10 +97,9 @@ def build_students(count: int) -> list[Student]:
         apellido = RNG.choice(APELLIDOS)
         segundo_apellido = RNG.choice(APELLIDOS)
         nombre = f"{primer_nombre} {apellido} {segundo_apellido}"
-        carnet = f"2026{index:04d}"
+        carnet = _generar_carnet()
         while carnet in used_carnets:
-            index += 1
-            carnet = f"2026{index:04d}"
+            carnet = _generar_carnet()
         used_carnets.add(carnet)
         facultad, carrera = choose_faculty_and_career()
         students.append(
