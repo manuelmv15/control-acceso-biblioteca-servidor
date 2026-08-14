@@ -205,11 +205,20 @@ def seed_hardware(conn) -> None:
 
 
 def seed_estado(conn, students: list[Student]) -> None:
+    """Deja PCs en los tres estados que calcula listar_estados() (ver
+    db/umbrales.py::UMBRAL_DISPONIBLE_MINUTOS): en_uso, disponible y
+    no_disponible (heartbeat viejo, como si el cliente se hubiera caído)."""
     now = datetime.now()
     active_pcs = {"PC-01", "PC-03", "PC-05"}
+    offline_pcs = {"PC-04", "PC-08"}
     for index, (pc_id, pc_nombre, *_rest) in enumerate(PCS):
         active = pc_id in active_pcs
+        offline = pc_id in offline_pcs
         student = students[index % len(students)] if active else None
+        if offline:
+            ultima_actualizacion = now - timedelta(minutes=RNG.randint(10, 180))
+        else:
+            ultima_actualizacion = now - timedelta(seconds=RNG.randint(0, 25))
         conn.execute(
             """
             INSERT INTO estado_pcs (pc_id, pc_nombre, sesion_activa, carnet, nombre, hora_inicio, ultima_actualizacion)
@@ -222,7 +231,7 @@ def seed_estado(conn, students: list[Student]) -> None:
                 student.carnet if student else None,
                 student.nombre if student else None,
                 (now - timedelta(minutes=RNG.randint(5, 55))).isoformat(sep=" ", timespec="seconds") if active else None,
-                now.isoformat(sep=" ", timespec="seconds"),
+                ultima_actualizacion.isoformat(sep=" ", timespec="seconds"),
             ),
         )
 
