@@ -398,8 +398,9 @@ tbody tr:last-child td { border-bottom: none; }
     transition: box-shadow 0.2s, transform 0.2s;
 }
 .pc-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.pc-activa { border-left-color: var(--ues-rojo); }
-.pc-libre  { border-left-color: var(--color-libre); opacity: 0.8; }
+.pc-activa        { border-left-color: var(--ues-rojo); }
+.pc-disponible     { border-left-color: var(--color-activo); }
+.pc-no-disponible  { border-left-color: var(--color-libre); opacity: 0.8; }
 
 .pc-header {
     display: flex; align-items: center; gap: 0.5rem;
@@ -413,8 +414,9 @@ tbody tr:last-child td { border-bottom: none; }
 .pc-status-dot {
     width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
 }
-.pc-activa .pc-status-dot { background: var(--ues-rojo); box-shadow: 0 0 6px var(--ues-rojo); }
-.pc-libre  .pc-status-dot { background: var(--color-libre); }
+.pc-activa        .pc-status-dot { background: var(--ues-rojo); box-shadow: 0 0 6px var(--ues-rojo); }
+.pc-disponible    .pc-status-dot { background: var(--color-activo); }
+.pc-no-disponible .pc-status-dot { background: var(--color-libre); }
 
 .pc-nombre { font-family: var(--font-heading); font-weight: 700; font-size: 1rem; flex: 1; color: var(--texto-principal); }
 
@@ -423,8 +425,9 @@ tbody tr:last-child td { border-bottom: none; }
     padding: 0.18rem 0.5rem; border-radius: 4px;
     letter-spacing: 0.06em;
 }
-.pc-activa .pc-badge { background: var(--ues-rojo-suave); color: var(--ues-rojo); }
-.pc-libre  .pc-badge { background: var(--borde-sutil); color: var(--texto-secundario); }
+.pc-activa        .pc-badge { background: var(--ues-rojo-suave); color: var(--ues-rojo); }
+.pc-disponible    .pc-badge { background: #DCFCE7; color: var(--color-activo); }
+.pc-no-disponible .pc-badge { background: var(--borde-sutil); color: var(--texto-secundario); }
 
 .pc-usuario { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
 .pc-dato { display: flex; justify-content: space-between; font-size: 0.85rem; }
