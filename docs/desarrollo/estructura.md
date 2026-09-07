@@ -15,11 +15,11 @@ Documentación de desarrollo, parte 2 de 2. Para cómo desplegar, ver [`desplieg
 
 - **FastAPI** + **Pydantic** sobre **Uvicorn** (ASGI).
 - **MySQL 8.4** accedido con **SQL crudo** vía `PyMySQL` (sin ORM).
-- **JWT** (`python-jose`) para el login del panel administrativo.
+- **JWT** (`PyJWT`) para el login del panel administrativo.
 - **Docker Compose** para orquestar servidor + base de datos.
 - **Panel web**: HTML/CSS/JS vanilla sin build step, con **Chart.js** desde CDN solo en la vista de estadísticas.
 
-Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `python-jose[cryptography]`, `python-multipart`, `PyMySQL`.
+Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `python-multipart`, `PyMySQL`.
 
 ## Estructura de carpetas
 

@@ -37,6 +37,43 @@ class LimitBodySizeMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Cabeceras de defensa en profundidad para el panel admin (H8).
+
+    El panel solo carga scripts propios (`/panel/js/*.js`, mismo origen) más
+    Chart.js desde `cdn.jsdelivr.net` con SRI (H6) — de ahí el `script-src`
+    acotado a esos dos orígenes. No hay estilos ni scripts inline en
+    `panel/index.html`/`*.js` (todo `element.textContent`/`escapeHtml()`),
+    así que no hace falta `'unsafe-inline'` en ningún directiva.
+    HSTS solo se envía si el propio proceso tiene TLS habilitado
+    (`TLS_CERT_PATH`/`TLS_KEY_PATH`, ver H1) — anunciarlo sirviendo HTTP
+    plano sería una promesa falsa al navegador.
+    """
+
+    _CSP = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
+    _TLS_ACTIVO = bool(os.environ.get("TLS_CERT_PATH")) and bool(os.environ.get("TLS_KEY_PATH"))
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = self._CSP
+        if self._TLS_ACTIVO:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LimitBodySizeMiddleware)
 
 app.add_middleware(

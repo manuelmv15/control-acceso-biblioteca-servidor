@@ -133,7 +133,7 @@ El certificado del servidor vence en ~825 días (2.25 años) — no hay renovaci
 - [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.
 - [ ] Si se expone fuera de la red local, hacerlo vía túnel Cloudflare (`cloudflared/`) en lugar de abrir puertos directamente.
 
-Detalle completo del modelo de amenazas y remediaciones aplicadas: `servidor/docs/security-testing-log.md` (dentro del código del servidor, no de esta carpeta `docs/` de alto nivel).
+Detalle completo del modelo de amenazas y remediaciones aplicadas: `AUDITORIA.md`, en la raíz del workspace (`~/Proyectos/blibliteca_project`, junto a este repo y a `biblioteca_cliente`) — ese es el único registro de amenazas que existe hoy; una referencia previa a un `servidor/docs/security-testing-log.md` que nunca llegó a comitearse fue retirada de esta guía y del README (hallazgo H10 de `AUDITORIA.md`).
 
 ## Orden de despliegue del sistema completo
 
