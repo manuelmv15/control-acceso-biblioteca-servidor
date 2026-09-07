@@ -84,6 +84,7 @@ uvicorn main:app --reload
 | `CORS_ORIGINS` | No | Orígenes separados por coma para acceso cross-origin. Vacío = sin CORS extra (el panel se sirve desde el mismo origen que la API). |
 | `LOGIN_MAX_INTENTOS` | No | Default 5. Intentos fallidos de `/auth/login` antes de bloquear temporalmente la IP. |
 | `LOGIN_BLOQUEO_MINUTOS` | No | Default 15. Minutos de bloqueo tras exceder `LOGIN_MAX_INTENTOS`. |
+| `TRUSTED_PROXIES` | No | IPs separadas por coma de reverse proxies/túneles de confianza (p. ej. Cloudflare Tunnel) autorizados a fijar `X-Forwarded-For` con la IP real del cliente para el rate limiting de `/auth/login`. Vacío (default) = nunca se confía en el header, siempre se usa la IP de la conexión TCP directa. Solo hace falta si el servidor corre detrás de un proxy — si no, todas las conexiones legítimas compartirían la IP del proxy y un solo atacante podría bloquear a todos los administradores. |
 | `MAX_BODY_SIZE_BYTES` | No | Default 5 000 000 (5MB). Límite de tamaño de body para `POST`/`PUT`/`PATCH`. |
 | `SYNC_MAX_SESIONES` | No | Default 500. Máximo de sesiones por lote en `POST /sync`. |
 | `TLS_CERT_PATH` / `TLS_KEY_PATH` | No (recomendado) | Rutas *dentro del contenedor* al certificado/clave del servidor. Vacías = uvicorn sirve HTTP plano. Ver sección **TLS** abajo. |

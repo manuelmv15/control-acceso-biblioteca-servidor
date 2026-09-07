@@ -58,14 +58,14 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 
 ## Endpoints de la API
 
-> 🔒 = requiere `Authorization: Bearer <token>` (obtenido en `/auth/login`), 401 si falta o es inválido. Los marcados **kiosko** son intencionalmente públicos porque el cliente de escritorio no maneja JWT.
+> 🔒 = requiere `Authorization: Bearer <token>` (obtenido en `/auth/login`), 401 si falta o es inválido. Los marcados **kiosko o admin** aceptan también el header `X-Kiosk-Key` == `KIOSK_API_KEY` (`require_kiosk_or_admin`, ver más abajo) — el cliente de escritorio no maneja JWT, así que usa esta vía.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
 | `POST` | `/auth/login` | pública | `{username, password}` → `{access_token, token_type}` |
 | `PUT` | `/auth/password` | 🔒 | Cambiar contraseña propia del admin autenticado |
-| `POST` | `/sync` | kiosko | Recibe lote de sesiones offline-first (upsert idempotente) |
-| `POST` | `/estado` | kiosko | Heartbeat de estado en vivo de una PC |
+| `POST` | `/sync` | 🔒 kiosko o admin | Recibe lote de sesiones offline-first (upsert idempotente) |
+| `POST` | `/estado` | 🔒 kiosko o admin | Heartbeat de estado en vivo de una PC |
 | `GET` | `/estado` | 🔒 | Lista el estado en vivo de todas las PCs |
 | `POST` | `/estudiantes` | 🔒 kiosko o admin | Registra estudiante (201, 409 si ya existe) |
 | `GET` | `/estudiantes` | 🔒 solo admin | Lista completa |
@@ -74,7 +74,7 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 | `DELETE` | `/estudiantes/{carnet}` | 🔒 solo admin | 204, 409 si tiene sesiones (FK) |
 | `GET` | `/pcs` | 🔒 | Lista de mantenimiento consolidada |
 | `POST` | `/pcs/{pc_id}/mantenimiento` | 🔒 | Marca `ultimo_mantenimiento = now()` |
-| `POST` | `/pcs/{pc_id}/hardware` | kiosko | Heartbeat de telemetría de hardware |
+| `POST` | `/pcs/{pc_id}/hardware` | 🔒 kiosko o admin | Heartbeat de telemetría de hardware |
 | `GET` | `/reportes/sesiones` | 🔒 | Filtros: `fecha`, `pc_id`, `carnet`, `carrera`, `limit` (≤5000), `offset` |
 | `GET` | `/reportes/pcs-activas` | 🔒 | PCs con `ultima_conexion` en últimos 5 min |
 | `GET` | `/reportes/resumen-dia` | 🔒 | Totales del día |
@@ -82,7 +82,7 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 | `GET` | `/health` | pública | `{"status": "ok"}` |
 | `GET` | `/`, `/panel/*` | pública | Sirve el panel web estático |
 
-Nota: `routers/pcs.py` y `routers/hardware.py` comparten el prefijo `/pcs` con tags distintos (intencional, las subrutas no colisionan). Solo `pcs.py` exige auth; `hardware.py` queda público (heartbeat del agente).
+Nota: `routers/pcs.py` y `routers/hardware.py` comparten el prefijo `/pcs` con tags distintos (intencional, las subrutas no colisionan); ambos exigen auth (`pcs.py` vía `require_auth`, `hardware.py` vía `require_kiosk_or_admin`).
 
 ## Lógica de negocio no obvia
 
@@ -104,7 +104,8 @@ Estas horas son `horas_uso_acumuladas` (tiempo real de encendido, reportado por 
 Ver checklist operativo en [`despliegue.md`](./despliegue.md#checklist-de-seguridad-antes-de-producción). Puntos relevantes para quien toca código:
 
 - `require_auth` (JWT, `routers/auth.py`) aplicado a nivel de router en `pcs.py`, `reportes.py`; solo a `GET` en `estado.py`; a `GET`/`DELETE` en `estudiantes.py`.
-- `require_kiosk_or_admin` (`routers/auth.py`) acepta JWT de admin **o** header `X-Kiosk-Key` == `KIOSK_API_KEY`, usado en `POST/GET/PUT /estudiantes`.
+- `require_kiosk_or_admin` (`routers/auth.py`) acepta JWT de admin **o** header `X-Kiosk-Key` == `KIOSK_API_KEY`, usado en `POST/GET/PUT /estudiantes`, `POST /sync`, `POST /estado` y `POST /pcs/{pc_id}/hardware` (hallazgo H2 de `AUDITORIA.md`, cerrado).
+- `TRUSTED_PROXIES` (`routers/auth.py`) acota en qué IPs se confía el header `X-Forwarded-For` para el rate limiting de `/auth/login`; vacío por defecto (siempre usa la IP de la conexión TCP directa). Las entradas de `_intentos_fallidos` se purgan solas cuando expiran y no vuelven a fallar (hallazgo H3 de `AUDITORIA.md`, cerrado).
 - Credenciales de admin viven en la tabla `admins` (no en `.env`); `ADMIN_USER`/`ADMIN_PASS_HASH` solo siembran el primer admin si la tabla está vacía (`db/schema.py::_sembrar_admin_inicial`).
 - `db/connection.py::ConnectionWrapper` envuelve PyMySQL con API estilo `sqlite3` (`.execute()`, `.executescript()`) para que el resto del código luzca uniforme. `executescript()` divide el SQL ingenuamente por `;` — suficiente para el DDL actual, no soportaría sentencias con `;` embebido.
 - `sesiones.id` es generado y enviado por el cliente kiosko (no autoincremental), consistente con el patrón offline-first.
