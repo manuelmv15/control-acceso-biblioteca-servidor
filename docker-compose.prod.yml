@@ -3,8 +3,7 @@
 #
 # No expone el puerto de MySQL al host: `servidor` llega a `db` por la red
 # interna de Compose (DB_HOST=db), así que no hay necesidad funcional de
-# publicarlo, y hacerlo amplía la superficie de ataque innecesariamente
-# (H-007, docs/security-testing-log.md).
+# publicarlo, y hacerlo amplía la superficie de ataque innecesariamente.
 #
 # Tampoco monta el código como volumen ni corre con --reload: la imagen se
 # construye con el código ya copiado dentro (servidor/Dockerfile) y uvicorn

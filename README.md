@@ -15,11 +15,11 @@ Backend de control de acceso y gestión para una sala de PCs / biblioteca univer
 
 - **FastAPI** + **Pydantic** sobre **Uvicorn** (ASGI).
 - **MySQL 8.4** como motor de base de datos, accedido con **SQL crudo** vía `PyMySQL` (sin ORM).
-- **JWT** (`python-jose`) para el login del panel administrativo.
+- **JWT** (`PyJWT`) para el login del panel administrativo.
 - **Docker Compose** para orquestar servidor + base de datos.
 - **Panel web**: HTML/CSS/JS vanilla sin build step, con **Chart.js** cargado desde CDN solo en la vista de estadísticas.
 
-Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `python-jose[cryptography]`, `python-multipart`, `PyMySQL`.
+Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `python-multipart`, `PyMySQL`.
 
 ### Estructura de carpetas
 
@@ -59,7 +59,7 @@ No existe un sistema formal de migraciones (Alembic, etc.): los cambios de esque
 
 ## Endpoints de la API
 
-> 🔒 Desde 2026-07-30 (remediación de H-001, ver `docs/security-testing-log.md`), todo endpoint marcado con 🔒 requiere `Authorization: Bearer <token>` válido (obtenido en `/auth/login`) y devuelve 401 si falta o es inválido. Los marcados como **kiosko** son intencionalmente públicos porque el cliente de escritorio no maneja JWT — ver sección de Seguridad.
+> 🔒 Desde 2026-07-30 (commit `d0045b8`, "requerir autenticación en todos los endpoints"), todo endpoint marcado con 🔒 requiere `Authorization: Bearer <token>` válido (obtenido en `/auth/login`) y devuelve 401 si falta o es inválido. Los marcados como **kiosko** son intencionalmente públicos porque el cliente de escritorio no maneja JWT — ver sección de Seguridad.
 
 ### `POST /auth/login`
 Body `{username, password}` → `{access_token, token_type}`. Compara contra la tabla `admins` en la base de datos (ver sección de Seguridad). 401 si no coincide.
@@ -117,7 +117,7 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 
 ## ⚠️ Seguridad — leer antes de desplegar en producción
 
-- **El JWT ya se valida en los endpoints del panel de administración.** `routers/auth.py` expone `require_auth` (dependencia FastAPI basada en `HTTPBearer` + `verify_token`), aplicada a nivel de router en `pcs.py`, `reportes.py`, solo a la ruta `GET` en `estado.py`, y a `GET`/`DELETE` en `estudiantes.py`. Devuelve 401 si falta el header `Authorization` o el token no es válido. **Quedan intencionalmente sin auth** los endpoints que consume el kiosko/agente de hardware, porque ese cliente no maneja JWT: `POST /sync`, `POST /estado`, `POST /pcs/{id}/hardware`, además de `/auth/login` y `/health`. Ver `docs/security-testing-log.md` (H-001, resuelto 2026-07-30) para el detalle de la remediación y su verificación manual.
+- **El JWT ya se valida en los endpoints del panel de administración.** `routers/auth.py` expone `require_auth` (dependencia FastAPI basada en `HTTPBearer` + `verify_token`), aplicada a nivel de router en `pcs.py`, `reportes.py`, solo a la ruta `GET` en `estado.py`, y a `GET`/`DELETE` en `estudiantes.py`. Devuelve 401 si falta el header `Authorization` o el token no es válido. **Quedan intencionalmente sin auth genérica** los endpoints que consume el kiosko/agente de hardware, porque ese cliente no maneja JWT: `/auth/login` y `/health` siguen siendo públicos por diseño; `POST /sync`, `POST /estado` y `POST /pcs/{id}/hardware` en cambio sí exigen credencial — ver el punto de `require_kiosk_or_admin` más abajo. Commit `d0045b8` ("requerir autenticación en todos los endpoints", 2026-07-30) fue la remediación original de este punto; ver `AUDITORIA.md` (hallazgos H1/H2) para el estado actual y las remediaciones posteriores.
 - **Auth de servicio para el kiosko en `/estudiantes` (H-011, resuelto).** `POST /estudiantes`, `GET /estudiantes/{carnet}` y `PUT /estudiantes/{carnet}` usan `require_kiosk_or_admin`: aceptan el JWT de admin **o** el header `X-Kiosk-Key` comparado contra `KIOSK_API_KEY`. Si `KIOSK_API_KEY` no está configurada, esa vía queda siempre cerrada. El kiosko debe tener el mismo valor en `cliente/config.ini` (`[servidor] kiosk_key`). `GET /estudiantes` y `DELETE /estudiantes/{carnet}` siguen siendo solo-admin.
 - **CORS totalmente abierto**: `allow_origins=["*"]` combinado con `allow_credentials=True` en `main.py` (combinación que, además, los navegadores ignoran por spec cuando se piden credenciales).
 - **`SECRET_KEY` viene vacía en `.env.example`.** `routers/auth.py` tiene un fallback hardcodeado (`"biblioteca-secret-key-change-in-production"`), pero si copias `.env.example` a `.env` sin rellenar `SECRET_KEY`, Docker Compose expande la variable como **cadena vacía** (no ausente), por lo que el fallback de Python nunca se activa y el JWT queda firmado con secreto vacío. **Rellena `SECRET_KEY` en tu `.env` con un valor fuerte** (`openssl rand -hex 32`).
@@ -132,7 +132,7 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 Hay dos archivos independientes, ninguno se combina con el otro vía `-f`:
 
 - **`docker-compose.yml`** — desarrollo, es el que corre `docker compose up` por defecto. Monta `./servidor` como volumen y corre `uvicorn --reload` (los cambios en el código se reflejan sin reconstruir), y publica el puerto `3306` de MySQL al host (`3307:3306`) para conectarte directo con MySQL Workbench, `mysql` CLI, etc.
-- **`docker-compose.prod.yml`** — producción, standalone. No monta código (la imagen ya lo trae copiado) ni corre con `--reload`, y **no publica el puerto de MySQL** al host: `servidor` llega a `db` por la red interna de Compose (`DB_HOST=db`), así que exponerlo solo ampliaría la superficie de ataque sin necesidad funcional (H-007, `docs/security-testing-log.md`).
+- **`docker-compose.prod.yml`** — producción, standalone. No monta código (la imagen ya lo trae copiado) ni corre con `--reload`, y **no publica el puerto de MySQL** al host: `servidor` llega a `db` por la red interna de Compose (`DB_HOST=db`), así que exponerlo solo ampliaría la superficie de ataque sin necesidad funcional.
 
 Ambos levantan los mismos dos servicios (`db`: `mysql:8.4`, healthcheck vía `mysqladmin ping`, volumen persistente `db_data`, timezone `America/El_Salvador`; `servidor`: build desde `./servidor`, puerto `8000`, espera a que `db` esté healthy, recibe `DB_HOST=db`, `DB_PORT=3306`, `DB_NAME/USER/PASSWORD`, `SECRET_KEY`, `KIOSK_API_KEY`, `ADMIN_USER`, `ADMIN_PASS_HASH`, y el resto de variables opcionales).
 

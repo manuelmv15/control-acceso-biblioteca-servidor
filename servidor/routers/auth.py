@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt
+import jwt
 from db import admins as db_admins
 from models import LoginRequest, Token, CambiarPasswordRequest
 
