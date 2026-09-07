@@ -10,6 +10,12 @@
 # construye con el código ya copiado dentro (servidor/Dockerfile) y uvicorn
 # corre sin --reload, como en cualquier build de producción.
 #
+# TLS opcional (recomendado): montamos ./certs (o TLS_CERTS_DIR) como
+# volumen de solo lectura en /certs; si TLS_CERT_PATH/TLS_KEY_PATH apuntan
+# ahí adentro, docker-entrypoint.sh le pasa --ssl-certfile/--ssl-keyfile a
+# uvicorn. Generar esos archivos con servidor/scripts/generar_ca.sh — ver
+# docs/desarrollo/despliegue.md, sección TLS.
+#
 # Uso:
 #   docker compose -f docker-compose.prod.yml up -d --build
 
@@ -55,6 +61,14 @@ services:
       MAX_BODY_SIZE_BYTES: ${MAX_BODY_SIZE_BYTES}
       SYNC_MAX_SESIONES: ${SYNC_MAX_SESIONES}
       TZ: America/El_Salvador
+      # TLS entre los kioscos y este servidor (H1, docs/desarrollo/despliegue.md
+      # sección TLS) — rutas DENTRO del contenedor, generadas con
+      # servidor/scripts/generar_ca.sh y montadas desde TLS_CERTS_DIR abajo.
+      # Vacías = uvicorn sirve HTTP plano, como hasta ahora.
+      TLS_CERT_PATH: ${TLS_CERT_PATH}
+      TLS_KEY_PATH: ${TLS_KEY_PATH}
+    volumes:
+      - ${TLS_CERTS_DIR:-./certs}:/certs:ro
 
 volumes:
   db_data:
