@@ -216,6 +216,11 @@ const Estadisticas = {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
             s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+            // SRI (H6): si jsdelivr sirve un archivo distinto al que se auditó
+            // (compromiso del CDN, downgrade, typo de versión), el navegador
+            // rechaza el script en vez de ejecutarlo.
+            s.integrity = 'sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt';
+            s.crossOrigin = 'anonymous';
             s.onload = resolve;
             s.onerror = reject;
             document.head.appendChild(s);
