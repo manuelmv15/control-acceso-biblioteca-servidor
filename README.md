@@ -122,8 +122,8 @@ Estas horas son `horas_uso_acumuladas` reportadas por el agente de hardware del 
 - **CORS totalmente abierto**: `allow_origins=["*"]` combinado con `allow_credentials=True` en `main.py` (combinación que, además, los navegadores ignoran por spec cuando se piden credenciales).
 - **`SECRET_KEY` viene vacía en `.env.example`.** `routers/auth.py` tiene un fallback hardcodeado (`"biblioteca-secret-key-change-in-production"`), pero si copias `.env.example` a `.env` sin rellenar `SECRET_KEY`, Docker Compose expande la variable como **cadena vacía** (no ausente), por lo que el fallback de Python nunca se activa y el JWT queda firmado con secreto vacío. **Rellena `SECRET_KEY` en tu `.env` con un valor fuerte** (`openssl rand -hex 32`).
 - **Credenciales de admin: viven en la base de datos, no en el `.env`.** Hay una tabla `admins` (`username`, `password_hash`) — `POST /auth/login` compara contra ella, no contra variables de entorno. `ADMIN_USER`/`ADMIN_PASS_HASH` en el `.env` solo se usan **una vez**, para sembrar el primer administrador si la tabla está vacía (`db/schema.py::_sembrar_admin_inicial`); después de eso quedan obsoletas — cambiarlas en el `.env` y reiniciar el servidor **no** cambia la contraseña real. Así quien hace el despliegue puede fijar unas credenciales iniciales conocidas, y el administrador real las cambia desde el panel (botón "Cambiar contraseña", `PUT /auth/password`) sin que quien desplegó llegue a conocer la contraseña definitiva.
-  - `ADMIN_PASS_HASH` **no es la contraseña en texto plano**, es un hash PBKDF2-HMAC-SHA256 (`pbkdf2_sha256$<iteraciones>$<salt>$<hash>`, 600 000 iteraciones — recomendación OWASP 2023+). Generalo con `python3 servidor/generar_hash_admin.py` (útil sobre todo si querés fijar una contraseña inicial custom sin exponerla a quien despliega; mismo principio que el PIN de administrador del kiosko, ver `biblioteca_cliente/cliente/setup.py`) o dejá el valor de ejemplo del `.env.example` y cambiala desde el panel en el primer login.
-  - Si la tabla `admins` queda vacía y `ADMIN_USER`/`ADMIN_PASS_HASH` no están configuradas (o el hash tiene formato inválido), el servidor arranca igual pero loguea una advertencia: nadie podrá iniciar sesión hasta sembrar un admin (por `.env` + reinicio, o insertándolo manualmente en la tabla).
+  - `ADMIN_PASS_HASH` **no es la contraseña en texto plano**, es un hash PBKDF2-HMAC-SHA256 (`pbkdf2_sha256$<iteraciones>$<salt>$<hash>`, 600 000 iteraciones — recomendación OWASP 2023+). Generalo con `python3 servidor/generar_hash_admin.py` (útil sobre todo si querés fijar una contraseña inicial custom sin exponerla a quien despliega; mismo principio que el PIN de administrador del kiosko, ver `biblioteca_cliente/cliente/setup.py`). **No es opcional:** el valor de ejemplo del `.env.example` es un hash real y público (contraseña "cambiar-esta-contrasena"), y `db/schema.py::_sembrar_admin_inicial` lo reconoce y se niega a crear el admin inicial con él (H12, `AUDITORIA.md`) — dejarlo tal cual deja el panel sin ningún administrador.
+  - Si la tabla `admins` queda vacía y `ADMIN_USER`/`ADMIN_PASS_HASH` no están configuradas, tienen formato inválido, o `ADMIN_PASS_HASH` es el hash de ejemplo público de arriba, el servidor arranca igual pero loguea una advertencia/error: nadie podrá iniciar sesión hasta sembrar un admin (por `.env` con un hash propio + reinicio, o insertándolo manualmente en la tabla).
 
 ## Despliegue
 
@@ -141,10 +141,10 @@ cp .env.example .env
 # editar .env: definir DB_NAME, DB_USER, DB_PASSWORD, MYSQL_ROOT_PASSWORD,
 # y rellenar SECRET_KEY y KIOSK_API_KEY (vienen vacías, ver arriba)
 #
-# ADMIN_USER/ADMIN_PASS_HASH ya traen un valor de ejemplo (contraseña inicial
-# "cambiar-esta-contrasena") — dejalos así y cambiá la contraseña desde el
-# panel en el primer login, o generá tu propio hash inicial sin exponer la
-# contraseña a quien despliega:
+# ADMIN_PASS_HASH trae un valor de EJEMPLO (contraseña "cambiar-esta-
+# contrasena", pública en este repo) que el servidor rechaza al arrancar
+# (H12, AUDITORIA.md) — generá el tuyo sin exponer la contraseña a quien
+# despliega:
 #   python3 servidor/generar_hash_admin.py
 
 # desarrollo

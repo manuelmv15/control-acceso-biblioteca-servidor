@@ -33,7 +33,7 @@ Editar `.env` (ver tabla completa de variables más abajo). Como mínimo hay que
 - `SECRET_KEY` — **obligatoria**, viene vacía en el ejemplo (`openssl rand -hex 32`)
 - `KIOSK_API_KEY` — **obligatoria**, compartida con todos los kioscos (`openssl rand -hex 32`)
 
-`ADMIN_USER`/`ADMIN_PASS_HASH` ya traen un valor de ejemplo (contraseña inicial `cambiar-esta-contrasena`). Se puede dejar así y cambiar la contraseña desde el panel en el primer login, o generar un hash inicial propio sin exponer la contraseña a quien despliega:
+`ADMIN_PASS_HASH` trae un valor de EJEMPLO (contraseña `cambiar-esta-contrasena`, pública en este repo) que el servidor **rechaza** al sembrar el admin inicial (H12, `AUDITORIA.md`) — dejarlo tal cual deja el panel sin ningún administrador. Generar un hash propio sin exponer la contraseña a quien despliega:
 
 ```bash
 python3 servidor/generar_hash_admin.py
@@ -127,7 +127,7 @@ El certificado del servidor vence en ~825 días (2.25 años) — no hay renovaci
 
 - [ ] `SECRET_KEY` rellena con un valor fuerte y aleatorio (no vacía).
 - [ ] `KIOSK_API_KEY` rellena y coincide con la de cada kiosko desplegado.
-- [ ] `ADMIN_PASS_HASH` cambiado desde el valor de ejemplo, o contraseña cambiada desde el panel en el primer login.
+- [ ] `ADMIN_PASS_HASH` propio (no el de ejemplo — el servidor lo rechaza igual, pero conviene no depender de eso).
 - [ ] Desplegado con `docker-compose.prod.yml`, no con el de desarrollo (evita `--reload` y exponer el puerto de MySQL).
 - [ ] `CORS_ORIGINS` configurado solo si el panel se sirve desde un origen distinto a la API (no es necesario por defecto).
 - [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.

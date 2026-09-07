@@ -8,6 +8,19 @@ log = logging.getLogger("uvicorn.error")
 
 _HASH_RE = re.compile(r"^pbkdf2_sha256\$\d+\$[0-9a-f]+\$[0-9a-f]+$")
 
+# H12 (AUDITORIA.md): el ADMIN_PASS_HASH de .env.example es un hash real y
+# válido de la contraseña "cambiar-esta-contrasena", publicado en un repo
+# público de GitHub. El README y el propio .env.example piden cambiarla
+# apenas se entra al panel, pero eso depende de que el operador se acuerde
+# de hacerlo — si copia .env.example a .env sin tocar este valor y nunca
+# entra a cambiarla, cualquiera que haya visto el repo puede loguearse como
+# admin. En vez de confiar solo en el checklist, el propio arranque rechaza
+# sembrar el admin inicial con este hash exacto.
+_HASH_EJEMPLO_PUBLICO = (
+    "pbkdf2_sha256$600000$deec2f9628d2aec504107990557ae826"
+    "$716dc1a2a52dc2ce925fc7ca9a369d1d13ef57f23b4105c3e623a5af647e6289"
+)
+
 
 def _tiene_columna(conn, tabla, columna):
     row = conn.execute("""
@@ -149,6 +162,14 @@ def _sembrar_admin_inicial(conn):
             "ADMIN_PASS_HASH no tiene el formato esperado (pbkdf2_sha256$...); "
             "generalo con 'python3 servidor/generar_hash_admin.py'. No se creó el "
             "administrador inicial."
+        )
+        return
+    if password_hash == _HASH_EJEMPLO_PUBLICO:
+        log.error(
+            "ADMIN_PASS_HASH es el hash de ejemplo de .env.example (contraseña "
+            "'cambiar-esta-contrasena'), publicado en un repo público de GitHub — "
+            "no se creó el administrador inicial. Generá tu propio hash con "
+            "'python3 servidor/generar_hash_admin.py' y fijalo en el .env real."
         )
         return
 
