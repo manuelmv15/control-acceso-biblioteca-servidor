@@ -68,7 +68,42 @@ KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
 LOGIN_MAX_INTENTOS = int(os.environ.get("LOGIN_MAX_INTENTOS") or 5)
 LOGIN_BLOQUEO_SEGUNDOS = int(os.environ.get("LOGIN_BLOQUEO_MINUTOS") or 15) * 60
 
+# IPs de proxies/túneles de confianza (p. ej. Cloudflare Tunnel) que pueden anteponer
+# X-Forwarded-For con la IP real del cliente. Sin esto, cualquier cliente podría falsificar
+# el header para esquivar el rate limit, así que por defecto (lista vacía) nunca se confía
+# en él y se usa siempre la IP de la conexión TCP directa.
+TRUSTED_PROXIES = {ip.strip() for ip in os.environ.get("TRUSTED_PROXIES", "").split(",") if ip.strip()}
+
 _intentos_fallidos: dict[str, dict] = {}
+
+
+def _client_ip(request: Request) -> str:
+    """IP real del cliente para el rate limiting de login. Si la conexión TCP directa viene
+    de una IP listada en TRUSTED_PROXIES, se confía en X-Forwarded-For (primer valor, el
+    cliente original); si no, se usa la IP directa. Evita que, detrás de un reverse proxy o
+    túnel no configurado como confiable, todas las conexiones legítimas compartan una sola
+    IP y un atacante bloquee a todos los administradores con un único origen."""
+    directa = request.client.host if request.client else "desconocida"
+    if directa in TRUSTED_PROXIES:
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()
+    return directa
+
+
+def _purgar_intentos_expirados() -> None:
+    """Elimina entradas de `_intentos_fallidos` cuyo bloqueo ya expiró y cuyo último intento
+    fallido es más viejo que la ventana de bloqueo. Sin esto, una IP que falla unas pocas
+    veces (por debajo del umbral) y no vuelve a intentar queda en el dict para siempre —
+    fuga de memoria lenta en despliegues de larga duración."""
+    ahora = time.time()
+    expiradas = [
+        ip
+        for ip, entrada in _intentos_fallidos.items()
+        if entrada["bloqueado_hasta"] < ahora and (ahora - entrada["ultimo_intento"]) > LOGIN_BLOQUEO_SEGUNDOS
+    ]
+    for ip in expiradas:
+        _intentos_fallidos.pop(ip, None)
 
 
 def _segundos_bloqueado(ip: str) -> Optional[int]:
@@ -86,8 +121,9 @@ def _segundos_bloqueado(ip: str) -> Optional[int]:
 
 
 def _registrar_intento_fallido(ip: str) -> None:
-    entrada = _intentos_fallidos.setdefault(ip, {"fallos": 0, "bloqueado_hasta": 0.0})
+    entrada = _intentos_fallidos.setdefault(ip, {"fallos": 0, "bloqueado_hasta": 0.0, "ultimo_intento": 0.0})
     entrada["fallos"] += 1
+    entrada["ultimo_intento"] = time.time()
     log.warning("Login fallido desde %s (intento %d/%d)", ip, entrada["fallos"], LOGIN_MAX_INTENTOS)
     if entrada["fallos"] >= LOGIN_MAX_INTENTOS:
         entrada["bloqueado_hasta"] = time.time() + LOGIN_BLOQUEO_SEGUNDOS
@@ -133,7 +169,8 @@ def require_kiosk_or_admin(
 
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest, request: Request):
-    ip = request.client.host if request.client else "desconocida"
+    ip = _client_ip(request)
+    _purgar_intentos_expirados()
 
     restante = _segundos_bloqueado(ip)
     if restante is not None:
