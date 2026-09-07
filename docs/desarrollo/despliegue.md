@@ -86,6 +86,41 @@ uvicorn main:app --reload
 | `LOGIN_BLOQUEO_MINUTOS` | No | Default 15. Minutos de bloqueo tras exceder `LOGIN_MAX_INTENTOS`. |
 | `MAX_BODY_SIZE_BYTES` | No | Default 5 000 000 (5MB). Límite de tamaño de body para `POST`/`PUT`/`PATCH`. |
 | `SYNC_MAX_SESIONES` | No | Default 500. Máximo de sesiones por lote en `POST /sync`. |
+| `TLS_CERT_PATH` / `TLS_KEY_PATH` | No (recomendado) | Rutas *dentro del contenedor* al certificado/clave del servidor. Vacías = uvicorn sirve HTTP plano. Ver sección **TLS** abajo. |
+| `TLS_CERTS_DIR` | No | Default `./certs`. Carpeta en el **host** que `docker-compose.prod.yml` monta en `/certs` (solo lectura) dentro del contenedor — ahí es donde deben estar los archivos que apuntan `TLS_CERT_PATH`/`TLS_KEY_PATH`. |
+
+## TLS (cifrado entre los kioscos y este servidor)
+
+Sin TLS, la PII de estudiantes y el header `X-Kiosk-Key` que envían los kioscos viajan **en texto plano** por la LAN del laboratorio — cualquiera en la misma red puede leerlos o alterarlos en tránsito (hallazgo H1 del informe de auditoría de seguridad, `AUDITORIA.md`). `biblioteca_cliente` ya rehúsa arrancar con `SERVER_URL` en `http://` hacia un host que no es `localhost`, salvo que se asuma el riesgo a propósito — ver su `docs/desarrollo/despliegue.md`.
+
+Como el servidor normalmente solo tiene una IP de LAN (sin dominio público), no aplica una CA pública tipo Let's Encrypt. `servidor/scripts/generar_ca.sh` genera una **CA interna propia** y un certificado para la IP del servidor:
+
+```bash
+cd servidor
+./scripts/generar_ca.sh 192.168.x.x      # IP real de la PC maestra en la LAN
+```
+
+Esto crea, en `<raíz del repo>/certs/` (junto a este `docker-compose.prod.yml`, gitignored — **nunca se versiona**):
+
+| Archivo | Qué es | A dónde va |
+|---|---|---|
+| `ca.key` | Clave privada de la CA | Guardarla offline (USB, gestor de contraseñas). No hace falta en el servidor una vez generado `server.pem`. |
+| `ca.pem` | Certificado público de la CA | Copiar a `cliente/ca.pem` en **cada uno de los 16 kioscos** — `config.ini` → `[servidor] ca_cert`. |
+| `server.key` | Clave privada del servidor | Queda en la PC maestra. `TLS_KEY_PATH` en el `.env`. |
+| `server.pem` | Certificado del servidor, firmado por la CA | `TLS_CERT_PATH` en el `.env`. |
+
+En el `.env` del servidor:
+
+```
+TLS_CERT_PATH=/certs/server.pem
+TLS_KEY_PATH=/certs/server.key
+```
+
+(`/certs` es la ruta *dentro del contenedor* — `docker-compose.prod.yml` monta `TLS_CERTS_DIR`, default `./certs`, ahí adentro.) Al levantar `docker compose -f docker-compose.prod.yml up -d --build` con esas variables configuradas, `servidor/docker-entrypoint.sh` le agrega automáticamente `--ssl-certfile`/`--ssl-keyfile` a `uvicorn`.
+
+El certificado del servidor vence en ~825 días (2.25 años) — no hay renovación automática como con una CA pública, calendarizarla (volver a correr `generar_ca.sh` reusando la misma CA, o el script completo si también hace falta rotar la CA).
+
+`docker-compose.yml` (desarrollo) no necesita nada de esto: corre sobre `localhost`, que sí está permitido en `http://` sin restricción.
 
 ## Checklist de seguridad antes de producción
 
@@ -94,6 +129,7 @@ uvicorn main:app --reload
 - [ ] `ADMIN_PASS_HASH` cambiado desde el valor de ejemplo, o contraseña cambiada desde el panel en el primer login.
 - [ ] Desplegado con `docker-compose.prod.yml`, no con el de desarrollo (evita `--reload` y exponer el puerto de MySQL).
 - [ ] `CORS_ORIGINS` configurado solo si el panel se sirve desde un origen distinto a la API (no es necesario por defecto).
+- [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.
 - [ ] Si se expone fuera de la red local, hacerlo vía túnel Cloudflare (`cloudflared/`) en lugar de abrir puertos directamente.
 
 Detalle completo del modelo de amenazas y remediaciones aplicadas: `servidor/docs/security-testing-log.md` (dentro del código del servidor, no de esta carpeta `docs/` de alto nivel).

@@ -26,6 +26,11 @@ env/
 *.sqlite
 *.sqlite3
 
+# Certificados TLS generados por servidor/scripts/generar_ca.sh (CA interna,
+# clave privada del servidor) — nunca se versionan, se generan una vez por
+# despliegue. Ver docs/desarrollo/despliegue.md, sección TLS.
+certs/
+
 # Logs
 *.log
 sync.log

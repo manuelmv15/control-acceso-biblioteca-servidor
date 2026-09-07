@@ -6,3 +6,7 @@ __pycache__/
 .venv/
 venv/
 .git/
+# Por si alguien genera la CA con servidor/scripts/generar_ca.sh apuntando
+# acá adentro en vez del default (raíz del repo) — nunca debe terminar
+# empacada en la imagen.
+certs/
