@@ -33,7 +33,7 @@ Editar `.env` (ver tabla completa de variables más abajo). Como mínimo hay que
 - `SECRET_KEY` — **obligatoria**, viene vacía en el ejemplo (`openssl rand -hex 32`)
 - `KIOSK_API_KEY` — **obligatoria**, compartida con todos los kioscos (`openssl rand -hex 32`)
 
-`ADMIN_PASS_HASH` trae un valor de EJEMPLO (contraseña `cambiar-esta-contrasena`, pública en este repo) que el servidor **rechaza** al sembrar el admin inicial (H12, `AUDITORIA.md`) — dejarlo tal cual deja el panel sin ningún administrador. Generar un hash propio sin exponer la contraseña a quien despliega:
+`ADMIN_PASS_HASH` trae un valor de EJEMPLO (contraseña `cambiar-esta-contrasena`, pública en este repo) que el servidor **rechaza** al sembrar el admin inicial — dejarlo tal cual deja el panel sin ningún administrador. Generar un hash propio sin exponer la contraseña a quien despliega:
 
 ```bash
 python3 servidor/generar_hash_admin.py
@@ -92,7 +92,7 @@ uvicorn main:app --reload
 
 ## TLS (cifrado entre los kioscos y este servidor)
 
-Sin TLS, la PII de estudiantes y el header `X-Kiosk-Key` que envían los kioscos viajan **en texto plano** por la LAN del laboratorio — cualquiera en la misma red puede leerlos o alterarlos en tránsito (hallazgo H1 del informe de auditoría de seguridad, `AUDITORIA.md`). `biblioteca_cliente` ya rehúsa arrancar con `SERVER_URL` en `http://` hacia un host que no es `localhost`, salvo que se asuma el riesgo a propósito — ver su `docs/desarrollo/despliegue.md`.
+Sin TLS, la PII de estudiantes y el header `X-Kiosk-Key` que envían los kioscos viajan **en texto plano** por la LAN del laboratorio — cualquiera en la misma red puede leerlos o alterarlos en tránsito. `biblioteca_cliente` ya rehúsa arrancar con `SERVER_URL` en `http://` hacia un host que no es `localhost`, salvo que se asuma el riesgo a propósito — ver su `docs/desarrollo/despliegue.md`.
 
 Como el servidor normalmente solo tiene una IP de LAN (sin dominio público), no aplica una CA pública tipo Let's Encrypt. `servidor/scripts/generar_ca.sh` genera una **CA interna propia** y un certificado para la IP del servidor:
 
@@ -132,8 +132,6 @@ El certificado del servidor vence en ~825 días (2.25 años) — no hay renovaci
 - [ ] `CORS_ORIGINS` configurado solo si el panel se sirve desde un origen distinto a la API (no es necesario por defecto).
 - [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.
 - [ ] Si se expone fuera de la red local, hacerlo vía túnel Cloudflare (`cloudflared/`) en lugar de abrir puertos directamente.
-
-Detalle completo del modelo de amenazas y remediaciones aplicadas: `AUDITORIA.md`, en la raíz del workspace (`~/Proyectos/blibliteca_project`, junto a este repo y a `biblioteca_cliente`) — ese es el único registro de amenazas que existe hoy; una referencia previa a un `servidor/docs/security-testing-log.md` que nunca llegó a comitearse fue retirada de esta guía y del README (hallazgo H10 de `AUDITORIA.md`).
 
 ## Orden de despliegue del sistema completo
 

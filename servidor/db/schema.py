@@ -8,7 +8,7 @@ log = logging.getLogger("uvicorn.error")
 
 _HASH_RE = re.compile(r"^pbkdf2_sha256\$\d+\$[0-9a-f]+\$[0-9a-f]+$")
 
-# H12 (AUDITORIA.md): el ADMIN_PASS_HASH de .env.example es un hash real y
+# El ADMIN_PASS_HASH de .env.example es un hash real y
 # válido de la contraseña "cambiar-esta-contrasena", publicado en un repo
 # público de GitHub. El README y el propio .env.example piden cambiarla
 # apenas se entra al panel, pero eso depende de que el operador se acuerde
