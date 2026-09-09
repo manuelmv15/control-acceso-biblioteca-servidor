@@ -26,7 +26,11 @@ const Cuenta = {
         if (nueva !== confirmar) { errEl.textContent = 'La confirmación no coincide con la contraseña nueva.'; return; }
 
         try {
-            await API.cambiarPassword(actual, nueva);
+            const data = await API.cambiarPassword(actual, nueva);
+            // Cambiar la contraseña invalida el token anterior (ver PUT /auth/password en el
+            // servidor); sin guardar el nuevo acá, la siguiente petición del panel devolvería
+            // 401 y forzaría un logout inesperado justo después de guardar.
+            if (data && data.access_token) API.setToken(data.access_token);
             okEl.classList.remove('hidden');
             document.getElementById('cuenta-pass-actual').value = '';
             document.getElementById('cuenta-pass-nueva').value = '';

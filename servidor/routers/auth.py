@@ -1,3 +1,4 @@
+import calendar
 import hashlib
 import hmac
 import logging
@@ -61,7 +62,7 @@ def generar_hash(password: str) -> str:
 
 SECRET_KEY = _require_env("SECRET_KEY")
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_HOURS = 24
+TOKEN_EXPIRE_HOURS = int(os.environ.get("TOKEN_EXPIRE_HOURS") or 24)
 
 KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
 
@@ -135,15 +136,40 @@ def _registrar_intento_fallido(ip: str) -> None:
 
 def create_token(data: dict) -> str:
     payload = data.copy()
+    payload["iat"] = datetime.utcnow()
     payload["exp"] = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def _token_revocado(payload: dict) -> bool:
+    """Un JWT de admin (`role: admin`) queda revocado si se emitió (`iat`) antes del último
+    cambio de contraseña de ese usuario, o si el usuario ya no existe. Sin esto, cambiar la
+    contraseña (`PUT /auth/password`) no servía para nada si el token viejo ya se había
+    filtrado (XSS, malware, red sin TLS): seguía siendo válido hasta que expirara solo, sin
+    importar la contraseña nueva. Compara siempre en UTC calculado en Python (ver
+    `db/admins.py::actualizar_password`) para no depender de la zona horaria del servidor
+    de MySQL."""
+    username = payload.get("sub")
+    emitido = payload.get("iat")
+    if username is None or emitido is None:
+        return True
+    actualizado = db_admins.obtener_actualizado(username)
+    if actualizado is None:
+        return True  # el admin ya no existe (o nunca existió)
+    return emitido < calendar.timegm(actualizado.timetuple())
+
+
 def verify_token(token: str) -> dict:
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    if payload.get("role") == "admin" and _token_revocado(payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión invalidada por un cambio de contraseña, inicia sesión de nuevo",
+        )
+    return payload
 
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -225,13 +251,19 @@ def login(req: LoginRequest, request: Request):
     return Token(access_token=token, token_type="bearer")
 
 
-@router.put("/password")
+@router.put("/password", response_model=Token)
 def cambiar_password(req: CambiarPasswordRequest, usuario: dict = Depends(require_auth)):
     """Permite al administrador ya autenticado cambiar su propia contraseña. Así quien
     despliega la app puede fijar unas credenciales iniciales (`ADMIN_USER`/`ADMIN_PASS_HASH`
     en el `.env`, ver `db/schema.py`) sin que sean las que se usan a largo plazo: el
     administrador real las cambia acá después de su primer login, y desde ese momento el
-    `.env` queda obsoleto — las credenciales viven solo en la base de datos."""
+    `.env` queda obsoleto — las credenciales viven solo en la base de datos.
+
+    El cambio de contraseña revoca (vía `verify_token`/`_token_revocado`) cualquier JWT
+    emitido antes de este momento, incluido el que se usó para autenticar esta misma
+    petición — por eso se devuelve acá un token nuevo, para que la sesión actual del panel
+    pueda seguir sin forzar un re-login inmediato; cualquier otra sesión con el token viejo
+    (robada o no) sí queda cerrada en su próxima petición."""
     username = usuario["sub"]
     hash_almacenado = db_admins.obtener_hash(username)
     if hash_almacenado is None or not verificar_password(req.password_actual, hash_almacenado):
@@ -243,4 +275,5 @@ def cambiar_password(req: CambiarPasswordRequest, usuario: dict = Depends(requir
         )
     db_admins.actualizar_password(username, generar_hash(req.password_nueva))
     log.info("Contraseña de administrador '%s' actualizada", username)
-    return {"ok": True}
+    token = create_token({"sub": username, "role": "admin"})
+    return Token(access_token=token, token_type="bearer")

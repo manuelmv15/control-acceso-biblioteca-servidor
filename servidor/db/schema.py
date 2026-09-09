@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from datetime import datetime
 
 from .connection import conexion
 
@@ -174,8 +175,8 @@ def _sembrar_admin_inicial(conn):
         return
 
     conn.execute(
-        "INSERT INTO admins (username, password_hash, actualizado) VALUES (%s, %s, NOW())",
-        (username, password_hash),
+        "INSERT INTO admins (username, password_hash, actualizado) VALUES (%s, %s, %s)",
+        (username, password_hash, datetime.utcnow()),
     )
     conn.commit()
     log.info("Administrador inicial '%s' creado a partir de ADMIN_USER/ADMIN_PASS_HASH.", username)
