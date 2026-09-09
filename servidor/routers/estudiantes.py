@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from db import estudiantes as db_estudiantes
 from models import Estudiante
-from routers.auth import require_auth, require_kiosk_or_admin
+from routers.auth import require_auth, require_kiosk_or_admin, limitar_lecturas_estudiante
 
 router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
 log = logging.getLogger("uvicorn.error")
@@ -31,7 +31,7 @@ def listar_estudiantes():
     return db_estudiantes.listar()
 
 
-@router.get("/{carnet}", dependencies=[Depends(require_kiosk_or_admin)])
+@router.get("/{carnet}", dependencies=[Depends(limitar_lecturas_estudiante)])
 def obtener_estudiante(carnet: str):
     try:
         return db_estudiantes.obtener(carnet)

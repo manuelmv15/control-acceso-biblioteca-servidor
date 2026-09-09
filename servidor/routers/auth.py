@@ -76,6 +76,9 @@ TRUSTED_PROXIES = {ip.strip() for ip in os.environ.get("TRUSTED_PROXIES", "").sp
 
 _intentos_fallidos: dict[str, dict] = {}
 
+_lecturas_estudiante: dict[str, list[float]] = {}
+LECTURAS_ESTUDIANTE_MAX_POR_MINUTO = int(os.environ.get("ESTUDIANTES_MAX_LECTURAS_MIN") or 30)
+
 
 def _client_ip(request: Request) -> str:
     """IP real del cliente para el rate limiting de login. Si la conexión TCP directa viene
@@ -165,6 +168,38 @@ def require_kiosk_or_admin(
     if credentials is not None:
         return verify_token(credentials.credentials)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se requiere JWT de admin o API key de kiosko")
+
+
+def _purgar_lecturas_expiradas() -> None:
+    """Elimina de `_lecturas_estudiante` las IPs sin consultas en la última ventana de 60s.
+    Mismo propósito que `_purgar_intentos_expirados`: sin esto el dict crece sin límite en
+    despliegues de larga duración (aunque acá el radio es chico, un puñado de kioskos)."""
+    ahora = time.time()
+    vacias = [ip for ip, ventana in _lecturas_estudiante.items() if not ventana or ahora - ventana[-1] > 60]
+    for ip in vacias:
+        _lecturas_estudiante.pop(ip, None)
+
+
+def limitar_lecturas_estudiante(request: Request, actor: dict = Depends(require_kiosk_or_admin)) -> dict:
+    """Dependencia FastAPI: exige JWT de admin o `X-Kiosk-Key` (igual que `require_kiosk_or_admin`)
+    y además limita por IP cuántas veces por minuto se puede consultar `GET /estudiantes/{carnet}`
+    con la key de kiosko. La key es una sola compartida por todos los equipos, así que sin este
+    límite cualquiera que la tenga podría barrer el espacio de carnets y extraer los datos de toda
+    la población estudiantil sin fricción. El panel admin (JWT, login individual) queda exento."""
+    if actor.get("role") == "admin":
+        return actor
+    ip = _client_ip(request)
+    _purgar_lecturas_expiradas()
+    ahora = time.time()
+    ventana = _lecturas_estudiante.setdefault(ip, [])
+    ventana[:] = [t for t in ventana if ahora - t < 60]
+    if len(ventana) >= LECTURAS_ESTUDIANTE_MAX_POR_MINUTO:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiadas consultas de estudiantes, espera un momento.",
+        )
+    ventana.append(ahora)
+    return actor
 
 
 @router.post("/login", response_model=Token)
