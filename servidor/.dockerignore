@@ -6,6 +6,11 @@ __pycache__/
 .venv/
 venv/
 .git/
+# Si alguna vez se coloca un .env dentro de servidor/ (el uso normal es
+# fuera del build context, en la raíz del repo), que el `COPY . .` del
+# Dockerfile no lo empaque en la imagen junto con las credenciales reales.
+.env
+.env.*
 # Por si alguien genera la CA con servidor/scripts/generar_ca.sh apuntando
 # acá adentro en vez del default (raíz del repo) — nunca debe terminar
 # empacada en la imagen.
