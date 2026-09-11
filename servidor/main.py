@@ -8,7 +8,15 @@ import os
 from db import init_db
 from routers import auth, sync, estudiantes, reportes, estado, pcs, hardware
 
-app = FastAPI(title="Biblioteca Control", version="1.0.0")
+ENABLE_API_DOCS = os.environ.get("ENABLE_API_DOCS", "").strip().lower() in ("1", "true", "yes")
+
+app = FastAPI(
+    title="Biblioteca Control",
+    version="1.0.0",
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
+)
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 MAX_BODY_SIZE_BYTES = int(os.environ.get("MAX_BODY_SIZE_BYTES") or 5_000_000)
