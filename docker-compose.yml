@@ -15,6 +15,12 @@
 # "db.<search-domain>" contra el DNS de Tailscale antes que el nombre "db"
 # simple, y esa consulta externa cuelga/falla, provocando
 # "Temporary failure in name resolution" y un crash-loop al conectar a MySQL.
+#
+# deploy.resources.limits en ambos servicios acota CPU/memoria por contenedor
+# (soportado por `docker compose up` sin Swarm en Compose v2) para que un pico
+# de tráfico, una fuga de memoria o un contenedor con problemas no agote los
+# recursos del host. Ajustado al tamaño esperado del despliegue (16 kioscos,
+# tráfico bajo); subir si el uso real se acerca al límite.
 
 services:
   db:
@@ -37,6 +43,11 @@ services:
       retries: 10
     dns_search:
       - .
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
 
   servidor:
     build: ./servidor
@@ -68,6 +79,11 @@ services:
       - ./servidor:/app
     dns_search:
       - .
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
 volumes:
   db_data:
