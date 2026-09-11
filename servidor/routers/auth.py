@@ -93,6 +93,14 @@ LOGIN_BLOQUEO_SEGUNDOS = int(os.environ.get("LOGIN_BLOQUEO_MINUTOS") or 15) * 60
 # en él y se usa siempre la IP de la conexión TCP directa.
 TRUSTED_PROXIES = {ip.strip() for ip in os.environ.get("TRUSTED_PROXIES", "").split(",") if ip.strip()}
 
+# Los tres contadores de rate limiting de este módulo (_intentos_fallidos acá abajo,
+# _lecturas_estudiante y _escrituras_kiosko más adelante) viven en memoria del proceso, no en
+# un almacén compartido (Redis, la propia BD, etc.). Repartidos entre varios workers/réplicas
+# de uvicorn, cada uno llevaría su propio contador y un atacante podría repartir sus intentos
+# entre ellos para esquivar el límite. Mientras el despliegue corra un solo proceso de uvicorn
+# (el caso actual, ver docker-entrypoint.sh y docs/desarrollo/despliegue.md) esto no aplica; si
+# alguna vez hace falta escalar a más de un worker o réplica, este estado tiene que migrar
+# primero a un almacén compartido entre procesos.
 _intentos_fallidos: dict[str, dict] = {}
 
 _lecturas_estudiante: dict[str, list[float]] = {}

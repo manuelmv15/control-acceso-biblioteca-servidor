@@ -14,6 +14,18 @@
 # sin cifrar por la LAN.
 set -e
 
+# El rate limiting de /auth/login y las ventanas de lecturas/escrituras de kiosko
+# (servidor/routers/auth.py) se llevan en memoria de este proceso, no en un almacén
+# compartido: con más de un worker cada uno tendría su propio contador y sería fácil de
+# esquivar. UVICORN_WORKERS no se usa para nada hoy (nunca se le agrega --workers a
+# uvicorn más abajo), así que cualquier valor distinto de 1 solo puede ser un intento de
+# escalar sin haber migrado antes ese estado — mejor abortar acá con un mensaje claro que
+# dejar el rate limiting roto en silencio.
+if [ -n "${UVICORN_WORKERS:-}" ] && [ "${UVICORN_WORKERS}" != "1" ]; then
+    echo "UVICORN_WORKERS=${UVICORN_WORKERS} no está soportado: el rate limiting de este servidor vive en memoria de un solo proceso (ver servidor/routers/auth.py). Corré un solo worker, o migrá ese estado a un almacén compartido antes de escalar. Abortando." >&2
+    exit 1
+fi
+
 if [ "$#" -gt 0 ]; then
     exec "$@"
 fi

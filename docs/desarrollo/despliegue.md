@@ -90,6 +90,7 @@ uvicorn main:app --reload
 | `ENABLE_API_DOCS` | No | Default deshabilitado. En `true`/`1`/`yes` habilita `/docs`, `/redoc` y `/openapi.json` (documentación interactiva de la API, sin autenticación). Dejar apagado en producción; solo activar para desarrollo local o debugging puntual. |
 | `TLS_CERT_PATH` / `TLS_KEY_PATH` | No (recomendado) | Rutas *dentro del contenedor* al certificado/clave del servidor. Vacías = uvicorn sirve HTTP plano. Ver sección **TLS** abajo. |
 | `TLS_CERTS_DIR` | No | Default `./certs`. Carpeta en el **host** que `docker-compose.prod.yml` monta en `/certs` (solo lectura) dentro del contenedor — ahí es donde deben estar los archivos que apuntan `TLS_CERT_PATH`/`TLS_KEY_PATH`. |
+| `UVICORN_WORKERS` | No | No se usa para nada (`docker-entrypoint.sh` nunca le agrega `--workers` a uvicorn): existe solo para que, si alguien la fija en un valor distinto de `1` pensando en escalar el servicio, el contenedor aborte al arrancar en vez de correr con el rate limiting de `servidor/routers/auth.py` roto en silencio (ver más abajo). |
 
 ## TLS (cifrado entre los kioscos y este servidor)
 
@@ -134,6 +135,7 @@ El certificado del servidor vence en ~825 días (2.25 años) — no hay renovaci
 - [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.
 - [ ] Si se expone fuera de la red local, hacerlo vía túnel Cloudflare (`cloudflared/`) en lugar de abrir puertos directamente.
 - [ ] `ENABLE_API_DOCS` sin fijar (o en `false`) — `/docs`/`/redoc`/`/openapi.json` quedan deshabilitados.
+- [ ] Una sola réplica del servicio `servidor` (los `docker-compose*.yml` de este repo no definen `deploy.replicas`, así que por defecto ya es una — solo aplica si en algún momento se orquesta distinto, p. ej. Swarm/Kubernetes). Dentro del contenedor, `docker-entrypoint.sh` ya aborta el arranque si `UVICORN_WORKERS` viene fijada en algo distinto de `1`: el rate limiting de `/auth/login` y las ventanas de lecturas/escrituras de kiosko (`servidor/routers/auth.py`) se llevan en memoria de un solo proceso, no en un almacén compartido.
 
 ## Orden de despliegue del sistema completo
 
