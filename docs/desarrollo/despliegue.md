@@ -79,7 +79,7 @@ uvicorn main:app --reload
 | `ADMIN_PASS_HASH` | Sí | Hash PBKDF2-HMAC-SHA256 (`pbkdf2_sha256$<iter>$<salt>$<hash>`, 600 000 iteraciones) de la contraseña inicial. **No es texto plano.** Generar con `python3 servidor/generar_hash_admin.py`. |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Sí | Credenciales de la base de datos MySQL. |
 | `MYSQL_ROOT_PASSWORD` | Sí | Contraseña root del contenedor MySQL. |
-| `SECRET_KEY` | Sí | Firma de los JWT. Viene vacía en `.env.example` — si se deja vacía, Docker Compose la expande como cadena vacía (no ausente) y el fallback hardcodeado del código **no** se activa: el JWT queda firmado con secreto vacío. Generar con `openssl rand -hex 32`. |
+| `SECRET_KEY` | Sí | Firma de los JWT. Viene vacía en `.env.example` — si se deja vacía (o ausente), el servidor **aborta al arrancar** con `RuntimeError` (`_require_env` en `servidor/routers/auth.py`); no existe ningún fallback ni JWT firmado con secreto vacío. Generar con `openssl rand -hex 32`. |
 | `KIOSK_API_KEY` | No | Respaldo compartido del header `X-Kiosk-Key`, solo se usa cuando una PC todavía no tiene su propia key (ver "API key de cada PC" abajo); cada uso queda registrado en los logs con advertencia. Si queda vacía, ese respaldo queda siempre cerrado y todas las PCs deben tener su key propia generada desde el panel. |
 | `CORS_ORIGINS` | No | Orígenes separados por coma para acceso cross-origin. Vacío = sin CORS extra (el panel se sirve desde el mismo origen que la API). |
 | `LOGIN_MAX_INTENTOS` | No | Default 5. Intentos fallidos de `/auth/login` antes de bloquear temporalmente la IP. |
