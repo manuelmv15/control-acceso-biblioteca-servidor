@@ -5,8 +5,7 @@ set -euo pipefail
 # para cifrar el tráfico entre los kioscos (biblioteca_cliente) y este
 # servidor dentro de la LAN del laboratorio. No hay dominio público, solo
 # una IP interna, así que no aplica una CA pública tipo Let's Encrypt — ver
-# docs/desarrollo/despliegue.md, sección TLS (hallazgo H1 del informe de
-# auditoría de seguridad).
+# docs/desarrollo/despliegue.md, sección TLS.
 #
 # Se corre UNA VEZ en la PC maestra (o en cualquier máquina con openssl, y
 # luego copiás los archivos a la PC maestra).

@@ -10,8 +10,8 @@
 # `command:`), arma la invocación de uvicorn acá mismo, agregando
 # --ssl-certfile/--ssl-keyfile cuando TLS_CERT_PATH/TLS_KEY_PATH están
 # configuradas (ver scripts/generar_ca.sh y docs/desarrollo/despliegue.md,
-# sección TLS) — H1 del informe de auditoría: sin esto, el tráfico entre los
-# kioscos y este servidor viaja sin cifrar por la LAN.
+# sección TLS): sin esto, el tráfico entre los kioscos y este servidor viaja
+# sin cifrar por la LAN.
 set -e
 
 if [ "$#" -gt 0 ]; then

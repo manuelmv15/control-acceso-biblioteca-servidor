@@ -60,7 +60,7 @@ services:
       MAX_BODY_SIZE_BYTES: ${MAX_BODY_SIZE_BYTES}
       SYNC_MAX_SESIONES: ${SYNC_MAX_SESIONES}
       TZ: America/El_Salvador
-      # TLS entre los kioscos y este servidor (H1, docs/desarrollo/despliegue.md
+      # TLS entre los kioscos y este servidor (docs/desarrollo/despliegue.md
       # sección TLS) — rutas DENTRO del contenedor, generadas con
       # servidor/scripts/generar_ca.sh y montadas desde TLS_CERTS_DIR abajo.
       # Vacías = uvicorn sirve HTTP plano, como hasta ahora.

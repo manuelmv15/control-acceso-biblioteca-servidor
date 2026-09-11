@@ -38,15 +38,15 @@ class LimitBodySizeMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Cabeceras de defensa en profundidad para el panel admin (H8).
+    """Cabeceras de defensa en profundidad para el panel admin.
 
     El panel solo carga scripts propios (`/panel/js/*.js`, mismo origen) más
-    Chart.js desde `cdn.jsdelivr.net` con SRI (H6) — de ahí el `script-src`
+    Chart.js desde `cdn.jsdelivr.net` con SRI — de ahí el `script-src`
     acotado a esos dos orígenes. No hay estilos ni scripts inline en
     `panel/index.html`/`*.js` (todo `element.textContent`/`escapeHtml()`),
     así que no hace falta `'unsafe-inline'` en ningún directiva.
     HSTS solo se envía si el propio proceso tiene TLS habilitado
-    (`TLS_CERT_PATH`/`TLS_KEY_PATH`, ver H1) — anunciarlo sirviendo HTTP
+    (`TLS_CERT_PATH`/`TLS_KEY_PATH`) — anunciarlo sirviendo HTTP
     plano sería una promesa falsa al navegador.
     """
 
