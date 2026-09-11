@@ -64,8 +64,15 @@ cd "$OUT_DIR"
 
 echo "=== Generando CA interna en $OUT_DIR ==="
 openssl genrsa -out ca.key 4096
+# -addext keyUsage: sin esta extensión, OpenSSL 3.2+ (validación estricta de
+# cadena, ver X509_V_FLAG_X509_STRICT) rechaza este CA para verificar el
+# certificado del servidor con "CA cert does not include key usage
+# extension" — falla silenciosa en el cliente porque hay_conexion() traga
+# cualquier excepción y la reporta solo como "sin conexión".
 openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
-    -out ca.pem -subj "/CN=Biblioteca UES CA"
+    -out ca.pem -subj "/CN=Biblioteca UES CA" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -addext "basicConstraints=critical,CA:true"
 
 echo ""
 echo "=== Generando certificado del servidor para '$HOST' ==="
