@@ -58,7 +58,7 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 
 ## Endpoints de la API
 
-> 🔒 = requiere `Authorization: Bearer <token>` (obtenido en `/auth/login`), 401 si falta o es inválido. Los marcados **kiosko o admin** aceptan también el header `X-Kiosk-Key` == `KIOSK_API_KEY` (`require_kiosk_or_admin`, ver más abajo) — el cliente de escritorio no maneja JWT, así que usa esta vía.
+> 🔒 = requiere `Authorization: Bearer <token>` (obtenido en `/auth/login`), 401 si falta o es inválido. Los marcados **kiosko o admin** aceptan también los headers `X-Kiosk-Key` + `X-PC-Id` de una PC (`require_kiosk_or_admin`, ver más abajo) — el cliente de escritorio no maneja JWT, así que usa esta vía.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
@@ -72,8 +72,10 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 | `GET` | `/estudiantes/{carnet}` | 🔒 kiosko o admin | 404 si no existe |
 | `PUT` | `/estudiantes/{carnet}` | 🔒 kiosko o admin | Actualiza campos |
 | `DELETE` | `/estudiantes/{carnet}` | 🔒 solo admin | 204, 409 si tiene sesiones (FK) |
-| `GET` | `/pcs` | 🔒 | Lista de mantenimiento consolidada |
+| `GET` | `/pcs` | 🔒 | Lista de mantenimiento consolidada (incluye `tiene_api_key` por PC) |
 | `POST` | `/pcs/{pc_id}/mantenimiento` | 🔒 | Marca `ultimo_mantenimiento = now()` |
+| `POST` | `/pcs/{pc_id}/api-key` | 🔒 solo admin | Genera/rota la API key de una PC, devuelve el valor en texto plano una única vez |
+| `DELETE` | `/pcs/{pc_id}/api-key` | 🔒 solo admin | Revoca la API key de una PC (204) |
 | `POST` | `/pcs/{pc_id}/hardware` | 🔒 kiosko o admin | Heartbeat de telemetría de hardware |
 | `GET` | `/reportes/sesiones` | 🔒 | Filtros: `fecha`, `pc_id`, `carnet`, `carrera`, `limit` (≤5000), `offset` |
 | `GET` | `/reportes/pcs-activas` | 🔒 | PCs con `ultima_conexion` en últimos 5 min |
@@ -104,7 +106,7 @@ Estas horas son `horas_uso_acumuladas` (tiempo real de encendido, reportado por 
 Ver checklist operativo en [`despliegue.md`](./despliegue.md#checklist-de-seguridad-antes-de-producción). Puntos relevantes para quien toca código:
 
 - `require_auth` (JWT, `routers/auth.py`) aplicado a nivel de router en `pcs.py`, `reportes.py`; solo a `GET` en `estado.py`; a `GET`/`DELETE` en `estudiantes.py`.
-- `require_kiosk_or_admin` (`routers/auth.py`) acepta JWT de admin **o** header `X-Kiosk-Key` == `KIOSK_API_KEY`, usado en `POST/GET/PUT /estudiantes`, `POST /sync`, `POST /estado` y `POST /pcs/{pc_id}/hardware`.
+- `require_kiosk_or_admin` (`routers/auth.py`) acepta JWT de admin **o** `X-Kiosk-Key` + `X-PC-Id` validados contra el hash guardado en `pcs.api_key_hash` para ese `pc_id` (`hash_api_key`); si esa PC no tiene key propia, cae como respaldo a la `KIOSK_API_KEY` compartida del `.env` (logueando advertencia). Usado en `POST/GET/PUT /estudiantes`, `POST /sync`, `POST /estado` y `POST /pcs/{pc_id}/hardware`. La key de cada PC se genera/rota/revoca solo-admin en `routers/pcs.py` (`POST`/`DELETE /pcs/{pc_id}/api-key`).
 - `TRUSTED_PROXIES` (`routers/auth.py`) acota en qué IPs se confía el header `X-Forwarded-For` para el rate limiting de `/auth/login`; vacío por defecto (siempre usa la IP de la conexión TCP directa). Las entradas de `_intentos_fallidos` se purgan solas cuando expiran y no vuelven a fallar.
 - Credenciales de admin viven en la tabla `admins` (no en `.env`); `ADMIN_USER`/`ADMIN_PASS_HASH` solo siembran el primer admin si la tabla está vacía (`db/schema.py::_sembrar_admin_inicial`).
 - `db/connection.py::ConnectionWrapper` envuelve PyMySQL con API estilo `sqlite3` (`.execute()`, `.executescript()`) para que el resto del código luzca uniforme. `executescript()` divide el SQL ingenuamente por `;` — suficiente para el DDL actual, no soportaría sentencias con `;` embebido.

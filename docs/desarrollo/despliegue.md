@@ -31,7 +31,7 @@ Editar `.env` (ver tabla completa de variables más abajo). Como mínimo hay que
 
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `MYSQL_ROOT_PASSWORD`
 - `SECRET_KEY` — **obligatoria**, viene vacía en el ejemplo (`openssl rand -hex 32`)
-- `KIOSK_API_KEY` — **obligatoria**, compartida con todos los kioscos (`openssl rand -hex 32`)
+- `KIOSK_API_KEY` — opcional, solo como respaldo mientras se migran PCs a una key propia (ver más abajo); dejarla vacía cierra esa vía de respaldo
 
 `ADMIN_PASS_HASH` trae un valor de EJEMPLO (contraseña `cambiar-esta-contrasena`, pública en este repo) que el servidor **rechaza** al sembrar el admin inicial — dejarlo tal cual deja el panel sin ningún administrador. Generar un hash propio sin exponer la contraseña a quien despliega:
 
@@ -80,7 +80,7 @@ uvicorn main:app --reload
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Sí | Credenciales de la base de datos MySQL. |
 | `MYSQL_ROOT_PASSWORD` | Sí | Contraseña root del contenedor MySQL. |
 | `SECRET_KEY` | Sí | Firma de los JWT. Viene vacía en `.env.example` — si se deja vacía, Docker Compose la expande como cadena vacía (no ausente) y el fallback hardcodeado del código **no** se activa: el JWT queda firmado con secreto vacío. Generar con `openssl rand -hex 32`. |
-| `KIOSK_API_KEY` | Sí | API key compartida por todos los kioscos (header `X-Kiosk-Key`), distinta de `SECRET_KEY`. Debe coincidir con `[servidor] kiosk_key` en `config.ini` de cada `biblioteca_cliente`. Si queda vacía, esa vía de auth queda siempre cerrada. |
+| `KIOSK_API_KEY` | No | Respaldo compartido del header `X-Kiosk-Key`, solo se usa cuando una PC todavía no tiene su propia key (ver "API key de cada PC" abajo); cada uso queda registrado en los logs con advertencia. Si queda vacía, ese respaldo queda siempre cerrado y todas las PCs deben tener su key propia generada desde el panel. |
 | `CORS_ORIGINS` | No | Orígenes separados por coma para acceso cross-origin. Vacío = sin CORS extra (el panel se sirve desde el mismo origen que la API). |
 | `LOGIN_MAX_INTENTOS` | No | Default 5. Intentos fallidos de `/auth/login` antes de bloquear temporalmente la IP. |
 | `LOGIN_BLOQUEO_MINUTOS` | No | Default 15. Minutos de bloqueo tras exceder `LOGIN_MAX_INTENTOS`. |
@@ -126,7 +126,7 @@ El certificado del servidor vence en ~825 días (2.25 años) — no hay renovaci
 ## Checklist de seguridad antes de producción
 
 - [ ] `SECRET_KEY` rellena con un valor fuerte y aleatorio (no vacía).
-- [ ] `KIOSK_API_KEY` rellena y coincide con la de cada kiosko desplegado.
+- [ ] Cada PC tiene su propia API key generada desde el panel (pestaña "PCs" → "Generar API key") en vez de depender de `KIOSK_API_KEY`; esta última solo debería estar rellena mientras dure la migración de PCs existentes.
 - [ ] `ADMIN_PASS_HASH` propio (no el de ejemplo — el servidor lo rechaza igual, pero conviene no depender de eso).
 - [ ] Desplegado con `docker-compose.prod.yml`, no con el de desarrollo (evita `--reload` y exponer el puerto de MySQL).
 - [ ] `CORS_ORIGINS` configurado solo si el panel se sirve desde un origen distinto a la API (no es necesario por defecto).
@@ -141,7 +141,8 @@ Este servidor es la mitad "PC maestra" del sistema. El otro componente (`bibliot
 1. Desplegar este servidor en la PC maestra (pasos de arriba)
 2. Anotar la IP local de la PC maestra
 3. En cada PC hija: clonar biblioteca_cliente, pip install -r requirements.txt, python setup.py
-   (usar la IP de la PC maestra + la misma KIOSK_API_KEY configurada acá)
+   (usar la IP de la PC maestra; `setup.py` genera el PC_ID y pide su API key —
+   generala desde el panel, pestaña "PCs", con ese PC_ID antes de completar el setup)
 4. Probar con 2-3 PCs antes de desplegar todas
 5. Verificar en el panel admin (pestaña "PCs") que llegan las sesiones y el heartbeat de hardware
 6. (Opcional) túnel Cloudflare para acceso externo al panel

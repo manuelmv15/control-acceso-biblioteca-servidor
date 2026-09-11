@@ -57,7 +57,9 @@ def init_db():
                 nombre VARCHAR(255),
                 ultima_conexion DATETIME,
                 ip_reportada VARCHAR(45),
-                ultimo_mantenimiento DATETIME
+                ultimo_mantenimiento DATETIME,
+                api_key_hash VARCHAR(255),
+                api_key_generada DATETIME
             ) ENGINE=InnoDB;
 
             CREATE TABLE IF NOT EXISTS sesiones (
@@ -115,6 +117,10 @@ def init_db():
         # migraciones formal; los cambios de esquema se aplican aquí).
         if not _tiene_columna(conn, "pcs", "ultimo_mantenimiento"):
             conn.execute("ALTER TABLE pcs ADD COLUMN ultimo_mantenimiento DATETIME NULL")
+        if not _tiene_columna(conn, "pcs", "api_key_hash"):
+            conn.execute("ALTER TABLE pcs ADD COLUMN api_key_hash VARCHAR(255) NULL")
+        if not _tiene_columna(conn, "pcs", "api_key_generada"):
+            conn.execute("ALTER TABLE pcs ADD COLUMN api_key_generada DATETIME NULL")
         conn.execute("ALTER TABLE sesiones MODIFY COLUMN carnet VARCHAR(30) NULL")
         if _tiene_columna(conn, "estudiantes", "departamento"):
             conn.execute("ALTER TABLE estudiantes DROP COLUMN departamento")

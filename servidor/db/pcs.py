@@ -23,6 +23,40 @@ def asegurar(conn, pc_id, nombre):
     """, (pc_id, nombre))
 
 
+def fijar_api_key(pc_id, api_key_hash):
+    """Guarda el hash de una API key nueva/rotada para `pc_id` (crea la fila
+    en `pcs` si la PC todavía no se había conectado nunca). Solo se persiste
+    el hash — la key en texto plano no se guarda en ningún lado, igual que
+    las contraseñas de admin; si se pierde, la única opción es rotarla."""
+    with conexion() as conn:
+        asegurar(conn, pc_id, None)
+        conn.execute(
+            "UPDATE pcs SET api_key_hash = %s, api_key_generada = %s WHERE pc_id = %s",
+            (api_key_hash, datetime.now().isoformat(), pc_id),
+        )
+        conn.commit()
+
+
+def revocar_api_key(pc_id) -> bool:
+    """Invalida la API key de una sola PC sin afectar a las demás ni borrar
+    su historial (`pcs`/`sesiones` siguen intactos). Devuelve False si la
+    PC no existe."""
+    with conexion() as conn:
+        cursor = conn.execute(
+            "UPDATE pcs SET api_key_hash = NULL WHERE pc_id = %s", (pc_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def obtener_api_key_hash(pc_id):
+    with conexion() as conn:
+        row = conn.execute(
+            "SELECT api_key_hash FROM pcs WHERE pc_id = %s", (pc_id,)
+        ).fetchone()
+        return row["api_key_hash"] if row else None
+
+
 def registrar_mantenimiento(pc_id):
     with conexion() as conn:
         cursor = conn.execute(
@@ -56,6 +90,7 @@ def listar_mantenimiento():
     with conexion() as conn:
         rows = conn.execute("""
             SELECT p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento,
+                   (p.api_key_hash IS NOT NULL) AS tiene_api_key,
                    COALESCE(SUM(TIMESTAMPDIFF(MINUTE, t.hora_inicio, COALESCE(t.hora_fin, NOW()))), 0)
                        AS minutos_uso_desde_mantenimiento,
                    h.hostname, h.mac_address, h.cpu, h.ram_total_mb, h.almacenamiento_total_gb,
@@ -71,7 +106,7 @@ def listar_mantenimiento():
             ) t ON t.pc_id = p.pc_id
                AND t.hora_inicio >= COALESCE(p.ultimo_mantenimiento, '1970-01-01 00:00:00')
             LEFT JOIN pcs_hardware h ON h.pc_id = p.pc_id
-            GROUP BY p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento,
+            GROUP BY p.pc_id, p.nombre, p.ultima_conexion, p.ultimo_mantenimiento, p.api_key_hash,
                      h.hostname, h.mac_address, h.cpu, h.ram_total_mb, h.almacenamiento_total_gb,
                      h.sistema_operativo, h.temperatura_cpu_c, h.disco_smart_ok,
                      h.horas_uso_acumuladas, h.ultima_lectura

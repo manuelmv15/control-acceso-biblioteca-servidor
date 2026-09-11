@@ -83,9 +83,27 @@
         </div>
     </div>
 
+    <div id="modal-pc-apikey" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>API key de <span id="apikey-pc-nombre"></span></h3>
+            <p id="apikey-explicacion">Generar una key nueva invalida de inmediato la anterior de esta PC (las demás no se ven afectadas). Copiala ahora: solo se muestra esta vez.</p>
+            <div class="modal-form">
+                <label>API key
+                    <input type="text" id="apikey-valor" readonly>
+                </label>
+            </div>
+            <p id="modal-apikey-error" class="error"></p>
+            <p id="modal-apikey-ok" class="success hidden">Copiada al portapapeles.</p>
+            <div class="modal-actions">
+                <button id="btn-apikey-copiar" class="btn-secondary">Copiar</button>
+                <button id="btn-apikey-cerrar" class="btn-danger">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/panel/js/api.js?v=9"></script>
     <script src="/panel/js/sesiones.js?v=10"></script>
-    <script src="/panel/js/pcs.js?v=10"></script>
+    <script src="/panel/js/pcs.js?v=11"></script>
     <script src="/panel/js/estudiantes.js?v=9"></script>
     <script src="/panel/js/estadisticas.js?v=8"></script>
     <script src="/panel/js/cuenta.js?v=1"></script>

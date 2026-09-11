@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from db import admins as db_admins
+from db import pcs as db_pcs
 from models import LoginRequest, Token, CambiarPasswordRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -65,6 +66,23 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = int(os.environ.get("TOKEN_EXPIRE_HOURS") or 24)
 
 KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
+
+
+def generar_api_key() -> str:
+    """Genera una API key nueva para una PC (`POST /pcs/{pc_id}/api-key`).
+    Alta entropía por construcción (256 bits de `secrets`), a diferencia de
+    una contraseña elegida por una persona."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_api_key(api_key: str) -> str:
+    """Hash de una API key de PC para guardar en `pcs.api_key_hash`. A
+    diferencia de `generar_hash()` (PBKDF2, 600k iteraciones, pensado para
+    contraseñas de baja entropía elegidas por una persona), esta key la
+    genera siempre el propio servidor con suficiente entropía como para que
+    un hash simple sea seguro contra fuerza bruta — no hace falta pagar el
+    costo de cómputo de PBKDF2 en cada request de los kioskos."""
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
 LOGIN_MAX_INTENTOS = int(os.environ.get("LOGIN_MAX_INTENTOS") or 5)
 LOGIN_BLOQUEO_SEGUNDOS = int(os.environ.get("LOGIN_BLOQUEO_MINUTOS") or 15) * 60
@@ -185,11 +203,30 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(_bearer_sch
 def require_kiosk_or_admin(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     x_kiosk_key: Optional[str] = Header(None, alias="X-Kiosk-Key"),
+    x_pc_id: Optional[str] = Header(None, alias="X-PC-Id"),
 ) -> dict:
-    """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer`) o la API key
-    compartida de kiosko (`X-Kiosk-Key`). Si `KIOSK_API_KEY` no está configurada, esa vía
-    queda siempre cerrada (nunca cae a un valor por defecto adivinable)."""
+    """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer`) o la API key de
+    kiosko (`X-Kiosk-Key`). La key de kiosko es por PC: el cliente manda también `X-PC-Id`
+    y se valida contra el hash guardado en `pcs.api_key_hash` para esa PC (generado desde
+    el panel con `POST /pcs/{pc_id}/api-key`), así una key filtrada de un equipo se puede
+    revocar (`DELETE /pcs/{pc_id}/api-key`) sin afectar a los demás y el `sub` del actor
+    identifica a la PC real, no una etiqueta genérica.
+
+    Si `X-PC-Id` no trae una key configurada, se compara además contra la
+    `KIOSK_API_KEY` compartida (`.env`) como vía de compatibilidad para equipos que
+    todavía no se migraron a una key propia; si `KIOSK_API_KEY` tampoco está configurada,
+    esa vía queda siempre cerrada (nunca cae a un valor por defecto adivinable)."""
+    if x_kiosk_key and x_pc_id:
+        api_key_hash = db_pcs.obtener_api_key_hash(x_pc_id)
+        if api_key_hash and hmac.compare_digest(hash_api_key(x_kiosk_key), api_key_hash):
+            return {"sub": x_pc_id, "role": "kiosk", "pc_id": x_pc_id}
     if KIOSK_API_KEY and x_kiosk_key and hmac.compare_digest(x_kiosk_key, KIOSK_API_KEY):
+        log.warning(
+            "Kiosko autenticado con la API key compartida (sin key propia configurada "
+            "para la PC) — pc_id enviado: %s. Generar una key dedicada desde el panel "
+            "(POST /pcs/{pc_id}/api-key).",
+            x_pc_id or "(no enviado)",
+        )
         return {"sub": "kiosko", "role": "kiosk"}
     if credentials is not None:
         return verify_token(credentials.credentials)
