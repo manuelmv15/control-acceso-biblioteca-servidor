@@ -42,7 +42,12 @@ def main() -> None:
         sys.exit("Las contraseñas no coinciden.")
 
     print("\nAgrega esta línea al .env del servidor:\n")
-    print(f"ADMIN_PASS_HASH={generar_hash(password)}")
+    # Comillas simples obligatorias: el hash trae "$" como separador
+    # (pbkdf2_sha256$iteraciones$salt$hash) y Docker Compose interpola
+    # variables dentro de .env — sin comillas, "$" seguido de algo que
+    # parezca nombre de variable (p. ej. el salt si empieza con letra) se
+    # reemplaza por texto vacío y corrompe el hash silenciosamente.
+    print(f"ADMIN_PASS_HASH='{generar_hash(password)}'")
     print("\n(No compartas la contraseña en texto plano — solo esta línea con el hash.)")
 
 
