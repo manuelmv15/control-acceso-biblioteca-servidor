@@ -228,6 +228,41 @@ def limitar_lecturas_estudiante(request: Request, actor: dict = Depends(require_
     return actor
 
 
+_escrituras_kiosko: dict[str, list[float]] = {}
+KIOSKO_MAX_ESCRITURAS_MIN = int(os.environ.get("KIOSKO_MAX_ESCRITURAS_MIN") or 60)
+
+
+def _purgar_escrituras_expiradas() -> None:
+    """Elimina de `_escrituras_kiosko` las IPs sin escrituras en la última ventana de 60s.
+    Mismo propósito que `_purgar_lecturas_expiradas`."""
+    ahora = time.time()
+    vacias = [ip for ip, ventana in _escrituras_kiosko.items() if not ventana or ahora - ventana[-1] > 60]
+    for ip in vacias:
+        _escrituras_kiosko.pop(ip, None)
+
+
+def limitar_escrituras_kiosko(request: Request, actor: dict = Depends(require_kiosk_or_admin)) -> dict:
+    """Dependencia FastAPI: igual que `limitar_lecturas_estudiante` pero para los endpoints de
+    escritura autenticados con `X-Kiosk-Key` (alta/edición de estudiantes, `/sync`, `/estado`,
+    `/pcs/{id}/hardware`). La key es una sola compartida por todos los kioskos, así que sin este
+    límite cualquiera que la tenga podría sobrescribir en masa los datos de todos los
+    estudiantes sin fricción. El panel admin (JWT, login individual) queda exento."""
+    if actor.get("role") == "admin":
+        return actor
+    ip = _client_ip(request)
+    _purgar_escrituras_expiradas()
+    ahora = time.time()
+    ventana = _escrituras_kiosko.setdefault(ip, [])
+    ventana[:] = [t for t in ventana if ahora - t < 60]
+    if len(ventana) >= KIOSKO_MAX_ESCRITURAS_MIN:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiadas escrituras, espera un momento.",
+        )
+    ventana.append(ahora)
+    return actor
+
+
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest, request: Request):
     ip = _client_ip(request)

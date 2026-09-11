@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from db import estudiantes as db_estudiantes
 from models import Estudiante
-from routers.auth import require_auth, require_kiosk_or_admin, limitar_lecturas_estudiante
+from routers.auth import require_auth, limitar_lecturas_estudiante, limitar_escrituras_kiosko
 
 router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
 log = logging.getLogger("uvicorn.error")
@@ -15,7 +15,7 @@ def _actor_ip(request: Request, actor: dict) -> str:
 
 @router.post("", status_code=201)
 def registrar_estudiante(
-    est: Estudiante, request: Request, actor: dict = Depends(require_kiosk_or_admin)
+    est: Estudiante, request: Request, actor: dict = Depends(limitar_escrituras_kiosko)
 ):
     try:
         db_estudiantes.crear(est)
@@ -41,7 +41,7 @@ def obtener_estudiante(carnet: str):
 
 @router.put("/{carnet}")
 def actualizar_estudiante(
-    carnet: str, est: Estudiante, request: Request, actor: dict = Depends(require_kiosk_or_admin)
+    carnet: str, est: Estudiante, request: Request, actor: dict = Depends(limitar_escrituras_kiosko)
 ):
     try:
         db_estudiantes.actualizar(carnet, est)
