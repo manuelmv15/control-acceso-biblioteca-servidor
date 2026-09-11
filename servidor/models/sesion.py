@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from .tipos import SexoValido
+
 
 class Sesion(BaseModel):
     id: str = Field(max_length=100)
@@ -14,5 +16,5 @@ class Sesion(BaseModel):
     nombre: Optional[str] = Field(default=None, max_length=255)
     carrera: Optional[str] = Field(default=None, max_length=255)
     facultad: Optional[str] = Field(default=None, max_length=255)
-    sexo: Optional[str] = Field(default=None, max_length=20)
+    sexo: Optional[SexoValido] = None
     fecha_nacimiento: Optional[str] = Field(default=None, max_length=10)
