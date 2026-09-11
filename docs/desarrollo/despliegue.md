@@ -79,6 +79,7 @@ uvicorn main:app --reload
 | `ADMIN_PASS_HASH` | Sí | Hash PBKDF2-HMAC-SHA256 (`pbkdf2_sha256$<iter>$<salt>$<hash>`, 600 000 iteraciones) de la contraseña inicial. **No es texto plano.** Generar con `python3 servidor/generar_hash_admin.py`. |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Sí | Credenciales de la base de datos MySQL. |
 | `MYSQL_ROOT_PASSWORD` | Sí | Contraseña root del contenedor MySQL. |
+| `DB_SSL_CA` | No | Ruta *dentro del contenedor* a un CA cert para cifrar la conexión servidor→MySQL. Sin efecto mientras `db` y `servidor` compartan la red interna de Compose (caso por defecto); solo hace falta si la base de datos se aloja fuera de esa red (managed DB en la nube, otra máquina) — puede colocarse dentro de `/certs`, reutilizando el mismo volumen que `TLS_CERTS_DIR`. |
 | `SECRET_KEY` | Sí | Firma de los JWT. Viene vacía en `.env.example` — si se deja vacía (o ausente), el servidor **aborta al arrancar** con `RuntimeError` (`_require_env` en `servidor/routers/auth.py`); no existe ningún fallback ni JWT firmado con secreto vacío. Generar con `openssl rand -hex 32`. |
 | `KIOSK_API_KEY` | No | Respaldo compartido del header `X-Kiosk-Key`, solo se usa cuando una PC todavía no tiene su propia key (ver "API key de cada PC" abajo); cada uso queda registrado en los logs con advertencia. Si queda vacía, ese respaldo queda siempre cerrado y todas las PCs deben tener su key propia generada desde el panel. |
 | `CORS_ORIGINS` | No | Orígenes separados por coma para acceso cross-origin. Vacío = sin CORS extra (el panel se sirve desde el mismo origen que la API). |
@@ -124,6 +125,10 @@ TLS_KEY_PATH=/certs/server.key
 El certificado del servidor vence en ~825 días (2.25 años) — no hay renovación automática como con una CA pública, calendarizarla (volver a correr `generar_ca.sh` reusando la misma CA, o el script completo si también hace falta rotar la CA).
 
 `docker-compose.yml` (desarrollo) no necesita nada de esto: corre sobre `localhost`, que sí está permitido en `http://` sin restricción.
+
+### Conexión servidor→MySQL
+
+Por defecto (`DB_SSL_CA` vacía) esta conexión va sin cifrar, sin impacto práctico mientras `db` y `servidor` compartan la red interna de Docker Compose, como en ambos `docker-compose*.yml` de este repo. Si en algún momento la base de datos se mueve fuera de esa red (un managed DB en la nube, otra máquina de la LAN), fijar `DB_SSL_CA` con la ruta al CA cert correspondiente — normalmente lo entrega el propio proveedor de la base de datos; puede colocarse dentro de `/certs` para reutilizar el volumen que ya monta `TLS_CERTS_DIR`.
 
 ## Checklist de seguridad antes de producción
 

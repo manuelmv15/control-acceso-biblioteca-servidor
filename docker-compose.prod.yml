@@ -78,6 +78,11 @@ services:
       # Vacías = uvicorn sirve HTTP plano, como hasta ahora.
       TLS_CERT_PATH: ${TLS_CERT_PATH}
       TLS_KEY_PATH: ${TLS_KEY_PATH}
+      # CA para cifrar servidor→MySQL — vacía = sin efecto mientras "db" y
+      # "servidor" compartan esta red interna de Compose (caso actual). Solo
+      # hace falta si la base de datos se aloja fuera de esta red; puede
+      # apuntar dentro de /certs, reutilizando el mismo volumen de abajo.
+      DB_SSL_CA: ${DB_SSL_CA}
     volumes:
       - ${TLS_CERTS_DIR:-./certs}:/certs:ro
     deploy:
