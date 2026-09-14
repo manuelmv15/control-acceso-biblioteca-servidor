@@ -19,7 +19,7 @@ Backend de control de acceso y gestión para una sala de PCs / biblioteca univer
 - **Docker Compose** para orquestar servidor + base de datos.
 - **Panel web**: HTML/CSS/JS vanilla sin build step, con **Chart.js** cargado desde CDN solo en la vista de estadísticas.
 
-Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `python-multipart`, `PyMySQL`.
+Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `PyMySQL`.
 
 ### Estructura de carpetas
 

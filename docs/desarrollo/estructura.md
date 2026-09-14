@@ -19,7 +19,7 @@ Documentación de desarrollo, parte 2 de 2. Para cómo desplegar, ver [`desplieg
 - **Docker Compose** para orquestar servidor + base de datos.
 - **Panel web**: HTML/CSS/JS vanilla sin build step, con **Chart.js** desde CDN solo en la vista de estadísticas.
 
-Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `python-multipart`, `PyMySQL`.
+Dependencias (`servidor/requirements.txt`): `fastapi`, `uvicorn[standard]`, `pydantic`, `PyJWT`, `PyMySQL`.
 
 ## Estructura de carpetas
 
