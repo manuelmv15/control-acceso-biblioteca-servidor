@@ -241,6 +241,19 @@ def require_kiosk_or_admin(
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se requiere JWT de admin o API key de kiosko")
 
 
+def verificar_pc_id(actor: dict, pc_id: str) -> None:
+    """Si el actor se autenticó con la API key propia de una PC (no con la
+    KIOSK_API_KEY compartida de compatibilidad, ni con un JWT de admin),
+    solo puede escribir datos para esa misma PC. Sin esto, cualquier PC
+    puede suplantar el estado/sesiones/hardware de cualquier otra (ver A1
+    en AUDITORIA.md)."""
+    if actor.get("role") == "kiosk" and actor.get("pc_id") and actor["pc_id"] != pc_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="La API key de esta PC no autoriza a reportar datos de otra PC",
+        )
+
+
 def _purgar_lecturas_expiradas() -> None:
     """Elimina de `_lecturas_estudiante` las IPs sin consultas en la última ventana de 60s.
     Mismo propósito que `_purgar_intentos_expirados`: sin esto el dict crece sin límite en

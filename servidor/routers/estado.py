@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends
 from db import estado as db_estado
 from models import EstadoPayload
-from routers.auth import require_auth, limitar_escrituras_kiosko
+from routers.auth import require_auth, limitar_escrituras_kiosko, verificar_pc_id
 
 router = APIRouter(prefix="/estado", tags=["estado"])
 
 
-@router.post("", dependencies=[Depends(limitar_escrituras_kiosko)])
-def actualizar_estado(payload: EstadoPayload):
+@router.post("")
+def actualizar_estado(payload: EstadoPayload, actor: dict = Depends(limitar_escrituras_kiosko)):
+    verificar_pc_id(actor, payload.pc_id)
     timestamp = db_estado.actualizar_estado(payload)
     return {"ok": True, "timestamp": timestamp}
 
