@@ -2,8 +2,9 @@
 #
 # Monta ./servidor como volumen y corre uvicorn con --reload, así que los
 # cambios en el código se reflejan sin reconstruir la imagen. Publica además
-# el puerto 3306 de MySQL al host para poder conectarte directo (MySQL
-# Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo local.
+# el puerto 3306 de MySQL en 127.0.0.1 del host para poder conectarte directo
+# (MySQL Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo
+# local, sin exponerlo al resto de la red (bind solo a loopback).
 #
 # Para producción usa el archivo standalone docker-compose.prod.yml (no se
 # combina con este vía -f, es autosuficiente):
@@ -33,7 +34,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: America/El_Salvador
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
