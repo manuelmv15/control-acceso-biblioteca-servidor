@@ -15,3 +15,14 @@ if str(SERVIDOR_DIR) not in sys.path:
 # módulo, para no depender de un .env real ni de variables de entorno puestas
 # a mano al correr pytest.
 os.environ.setdefault("SECRET_KEY", "clave-de-prueba-solo-para-tests-no-usar-en-produccion")
+
+# db/connection.py exige DB_USER y DB_PASSWORD al importarse (mismo patrón
+# `_require_env` que SECRET_KEY, ver B2 en AUDITORIA.md) y `db/__init__.py`
+# importa `connection` en cadena, así que hasta los tests que no tocan MySQL
+# (test_auth.py, test_umbrales.py) disparan esa validación solo con
+# `from routers import auth` / `from db import ...`. Se fijan acá por el
+# mismo motivo que SECRET_KEY: no depender de un .env real ni de variables
+# puestas a mano al correr pytest. Ningún test abre una conexión real a
+# MySQL con estos valores.
+os.environ.setdefault("DB_USER", "usuario-de-prueba-solo-para-tests")
+os.environ.setdefault("DB_PASSWORD", "clave-de-prueba-solo-para-tests")

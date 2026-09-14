@@ -4,10 +4,23 @@ from contextlib import contextmanager
 import pymysql
 import pymysql.cursors
 
+
+def _require_env(name: str) -> str:
+    """Mismo criterio que `routers/auth.py` para `SECRET_KEY`: si falta la variable, el proceso
+    debe fallar de forma ruidosa al arrancar en vez de conectar con una credencial adivinable."""
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(
+            f"La variable de entorno {name} es obligatoria y no puede estar vacía. "
+            f"Configúrala en tu .env antes de iniciar el servidor."
+        )
+    return value
+
+
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = int(os.environ.get("DB_PORT", "3306"))
-DB_USER = os.environ.get("DB_USER", "biblioteca")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "biblioteca")
+DB_USER = _require_env("DB_USER")
+DB_PASSWORD = _require_env("DB_PASSWORD")
 DB_NAME = os.environ.get("DB_NAME", "biblioteca")
 
 # Ruta (dentro del contenedor) a un certificado CA para cifrar la conexión a
