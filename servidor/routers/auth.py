@@ -245,8 +245,7 @@ def verificar_pc_id(actor: dict, pc_id: str) -> None:
     """Si el actor se autenticó con la API key propia de una PC (no con la
     KIOSK_API_KEY compartida de compatibilidad, ni con un JWT de admin),
     solo puede escribir datos para esa misma PC. Sin esto, cualquier PC
-    puede suplantar el estado/sesiones/hardware de cualquier otra (ver A1
-    en AUDITORIA.md)."""
+    puede suplantar el estado/sesiones/hardware de cualquier otra."""
     if actor.get("role") == "kiosk" and actor.get("pc_id") and actor["pc_id"] != pc_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -255,27 +254,30 @@ def verificar_pc_id(actor: dict, pc_id: str) -> None:
 
 
 def _purgar_lecturas_expiradas() -> None:
-    """Elimina de `_lecturas_estudiante` las IPs sin consultas en la última ventana de 60s.
+    """Elimina de `_lecturas_estudiante` las claves sin consultas en la última ventana de 60s.
     Mismo propósito que `_purgar_intentos_expirados`: sin esto el dict crece sin límite en
     despliegues de larga duración (aunque acá el radio es chico, un puñado de kioskos)."""
     ahora = time.time()
-    vacias = [ip for ip, ventana in _lecturas_estudiante.items() if not ventana or ahora - ventana[-1] > 60]
-    for ip in vacias:
-        _lecturas_estudiante.pop(ip, None)
+    vacias = [clave for clave, ventana in _lecturas_estudiante.items() if not ventana or ahora - ventana[-1] > 60]
+    for clave in vacias:
+        _lecturas_estudiante.pop(clave, None)
 
 
 def limitar_lecturas_estudiante(request: Request, actor: dict = Depends(require_kiosk_or_admin)) -> dict:
     """Dependencia FastAPI: exige JWT de admin o `X-Kiosk-Key` (igual que `require_kiosk_or_admin`)
-    y además limita por IP cuántas veces por minuto se puede consultar `GET /estudiantes/{carnet}`
-    con la key de kiosko. La key es una sola compartida por todos los equipos, así que sin este
-    límite cualquiera que la tenga podría barrer el espacio de carnets y extraer los datos de toda
-    la población estudiantil sin fricción. El panel admin (JWT, login individual) queda exento."""
+    y además limita cuántas veces por minuto se puede consultar `GET /estudiantes/{carnet}` con la
+    key de kiosko. Se limita por la credencial (`actor["sub"]`: el `pc_id` para una key propia por
+    PC, o el literal "kiosko" para la `KIOSK_API_KEY` compartida) y no por IP — así una key filtrada
+    reproducida desde varias IPs (proxies, redes distintas) no evade el límite repartiendo las
+    consultas entre orígenes; solo si no hay actor identificable se cae a la IP como respaldo. Sin
+    este límite, cualquiera con la key podría barrer el espacio de carnets y extraer los datos de
+    toda la población estudiantil sin fricción. El panel admin (JWT, login individual) queda exento."""
     if actor.get("role") == "admin":
         return actor
-    ip = _client_ip(request)
+    clave = actor.get("sub") or _client_ip(request)
     _purgar_lecturas_expiradas()
     ahora = time.time()
-    ventana = _lecturas_estudiante.setdefault(ip, [])
+    ventana = _lecturas_estudiante.setdefault(clave, [])
     ventana[:] = [t for t in ventana if ahora - t < 60]
     if len(ventana) >= LECTURAS_ESTUDIANTE_MAX_POR_MINUTO:
         raise HTTPException(
@@ -291,26 +293,27 @@ KIOSKO_MAX_ESCRITURAS_MIN = int(os.environ.get("KIOSKO_MAX_ESCRITURAS_MIN") or 6
 
 
 def _purgar_escrituras_expiradas() -> None:
-    """Elimina de `_escrituras_kiosko` las IPs sin escrituras en la última ventana de 60s.
+    """Elimina de `_escrituras_kiosko` las claves sin escrituras en la última ventana de 60s.
     Mismo propósito que `_purgar_lecturas_expiradas`."""
     ahora = time.time()
-    vacias = [ip for ip, ventana in _escrituras_kiosko.items() if not ventana or ahora - ventana[-1] > 60]
-    for ip in vacias:
-        _escrituras_kiosko.pop(ip, None)
+    vacias = [clave for clave, ventana in _escrituras_kiosko.items() if not ventana or ahora - ventana[-1] > 60]
+    for clave in vacias:
+        _escrituras_kiosko.pop(clave, None)
 
 
 def limitar_escrituras_kiosko(request: Request, actor: dict = Depends(require_kiosk_or_admin)) -> dict:
     """Dependencia FastAPI: igual que `limitar_lecturas_estudiante` pero para los endpoints de
     escritura autenticados con `X-Kiosk-Key` (alta/edición de estudiantes, `/sync`, `/estado`,
-    `/pcs/{id}/hardware`). La key es una sola compartida por todos los kioskos, así que sin este
-    límite cualquiera que la tenga podría sobrescribir en masa los datos de todos los
-    estudiantes sin fricción. El panel admin (JWT, login individual) queda exento."""
+    `/pcs/{id}/hardware`). Se limita por la credencial (`actor["sub"]`), no por IP — ver el
+    docstring de `limitar_lecturas_estudiante` para el razonamiento. Sin este límite cualquiera
+    con la key podría sobrescribir en masa los datos de todos los estudiantes sin fricción.
+    El panel admin (JWT, login individual) queda exento."""
     if actor.get("role") == "admin":
         return actor
-    ip = _client_ip(request)
+    clave = actor.get("sub") or _client_ip(request)
     _purgar_escrituras_expiradas()
     ahora = time.time()
-    ventana = _escrituras_kiosko.setdefault(ip, [])
+    ventana = _escrituras_kiosko.setdefault(clave, [])
     ventana[:] = [t for t in ventana if ahora - t < 60]
     if len(ventana) >= KIOSKO_MAX_ESCRITURAS_MIN:
         raise HTTPException(
@@ -323,6 +326,11 @@ def limitar_escrituras_kiosko(request: Request, actor: dict = Depends(require_ki
 
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest, request: Request):
+    # A diferencia de limitar_lecturas_estudiante/limitar_escrituras_kiosko, acá todavía no hay
+    # actor autenticado en el momento de contar el intento — es justo lo que este endpoint está
+    # evaluando — así que el límite sigue atado a la IP. Riesgo aceptado: credenciales de admin
+    # filtradas y reproducidas desde varias IPs evaden este límite; no hay forma de atarlo a la
+    # credencial sin conocerla de antemano.
     ip = _client_ip(request)
     _purgar_intentos_expirados()
 
