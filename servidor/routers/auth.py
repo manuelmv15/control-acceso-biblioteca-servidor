@@ -61,6 +61,16 @@ def generar_hash(password: str) -> str:
     return f"pbkdf2_sha256${PBKDF2_ITERACIONES}${salt.hex()}${derivado.hex()}"
 
 
+# Hash "señuelo" contra el que se verifica en login() cuando el username no existe, para que
+# ese caso corra igual el PBKDF2 completo (mismas iteraciones) que uno con username real y
+# contraseña incorrecta. Sin esto, "usuario no existe" corta antes de calcular el PBKDF2 y
+# responde medibles milisegundos antes que "contraseña incorrecta" — un atacante puede usar esa
+# diferencia de tiempo para enumerar qué usuarios de admin existen. Se calcula una sola vez al
+# importar el módulo (no en cada request) porque el hash en sí es irrelevante, solo importa que
+# tenga el formato/costo de uno real.
+_HASH_DUMMY = generar_hash(secrets.token_hex(16))
+
+
 SECRET_KEY = _require_env("SECRET_KEY")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = int(os.environ.get("TOKEN_EXPIRE_HOURS") or 24)
@@ -400,7 +410,10 @@ def login(req: LoginRequest, request: Request, response: Response):
         )
 
     hash_almacenado = db_admins.obtener_hash(req.username)
-    if hash_almacenado is None or not verificar_password(req.password, hash_almacenado):
+    # Se verifica siempre contra un hash (el real o, si el username no existe, _HASH_DUMMY) para
+    # que el PBKDF2 completo corra en ambos casos — ver el docstring de _HASH_DUMMY.
+    password_ok = verificar_password(req.password, hash_almacenado or _HASH_DUMMY)
+    if hash_almacenado is None or not password_ok:
         _registrar_intento_fallido(ip)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas")
 

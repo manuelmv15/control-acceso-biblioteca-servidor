@@ -29,6 +29,15 @@ def test_verificar_password_rechaza_hash_malformado_o_ausente():
     assert not auth.verificar_password("cualquier-cosa", None)
 
 
+def test_hash_dummy_tiene_formato_y_costo_de_un_hash_real():
+    # _HASH_DUMMY es lo que login() usa para verificar cuando el username no existe, así que
+    # tiene que ser un hash pbkdf2_sha256 válido con las mismas iteraciones que uno real — si no,
+    # verificar_password() correría más rápido/lento ahí y reabriría el canal de timing (B1).
+    iteraciones, _salt, _hash_hex = auth._parsear_hash(auth._HASH_DUMMY)
+    assert iteraciones == auth.PBKDF2_ITERACIONES
+    assert not auth.verificar_password("cualquier-cosa", auth._HASH_DUMMY)
+
+
 def test_generar_hash_usa_un_salt_distinto_cada_vez():
     # Dos hashes de la misma contraseña no deben ser iguales (protege contra
     # tablas arcoíris); ambos deben seguir verificando esa misma contraseña.
