@@ -186,19 +186,54 @@ Más allá del `HEALTHCHECK` de Docker (que solo dice si el proceso responde), `
 - [ ] `ENABLE_API_DOCS` sin fijar (o en `false`) — `/docs`/`/redoc`/`/openapi.json` quedan deshabilitados.
 - [ ] Una sola réplica del servicio `servidor` (los `docker-compose*.yml` de este repo no definen `deploy.replicas`, así que por defecto ya es una — solo aplica si en algún momento se orquesta distinto, p. ej. Swarm/Kubernetes). Dentro del contenedor, `docker-entrypoint.sh` ya aborta el arranque si `UVICORN_WORKERS` viene fijada en algo distinto de `1`: el rate limiting de `/auth/login` y las ventanas de lecturas/escrituras de kiosko (`servidor/routers/auth.py`) se llevan en memoria de un solo proceso, no en un almacén compartido.
 
-## Orden de despliegue del sistema completo
+## Cómo se conectan el servidor y las PCs (kioscos)
 
-Este servidor es la mitad "PC maestra" del sistema. El otro componente (`biblioteca_cliente`) se instala en cada PC hija:
+Este servidor es la mitad "PC maestra": corre en **una sola PC** de la sala (o una máquina/VM dedicada), y cada una de las PCs de la sala corre `biblioteca_cliente` como kiosko, hablándole a este servidor por la red local. No hay descubrimiento automático: cada kiosko necesita saber, de antemano, la IP (o dominio) de la PC maestra, configurada a mano una vez en `setup.py`/`config.ini` de esa PC.
 
-```
-1. Desplegar este servidor en la PC maestra (pasos de arriba)
-2. Anotar la IP local de la PC maestra
-3. En cada PC hija: clonar biblioteca_cliente, pip install -r requirements.txt, python setup.py
-   (usar la IP de la PC maestra; `setup.py` genera el PC_ID y pide su API key —
-   generala desde el panel, pestaña "PCs", con ese PC_ID antes de completar el setup)
-4. Probar con 2-3 PCs antes de desplegar todas
-5. Verificar en el panel admin (pestaña "PCs") que llegan las sesiones y el heartbeat de hardware
-6. (Opcional) túnel Cloudflare para acceso externo al panel
-```
+- **Transporte**: HTTP(S) sobre el puerto `8000` (el que publica `docker-compose*.yml`). El cliente (`cliente/network/`) es un consumidor REST/JSON normal (`requests`), no hay WebSockets ni un protocolo propio.
+- **Red**: todas las PCs deben estar en la misma LAN que la PC maestra (o alcanzarla por VPN/túnel) y el firewall de la PC maestra debe permitir entrantes al puerto `8000` desde esa LAN — no hace falta abrir nada hacia internet salvo que se use el túnel Cloudflare opcional para el panel.
+- **Identidad de cada PC**: cada kiosko tiene un `PC_ID` (UUID4, generado una vez por `setup.py` en `.pc_id`) que lo identifica de forma estable ante el servidor, independiente de hostname/MAC/IP (que pueden cambiar).
+- **Autenticación kiosko→servidor**: cada request del kiosko (`POST /sync`, `POST /estado`, `POST/GET/PUT /estudiantes`, `POST /pcs/{id}/hardware`) manda dos headers: `X-PC-Id` (el UUID de esa PC) y `X-Kiosk-Key` (su API key). El servidor valida la key contra el hash guardado en `pcs.api_key_hash` para ese `pc_id` exacto (`require_kiosk_or_admin` + `verificar_pc_id` en `servidor/routers/auth.py`) — una PC no puede autenticarse con el `PC_ID` de otra, ni usar la key de otra. La key se genera **desde el panel admin** (pestaña "PCs" → "Generar API key", requiere el `PC_ID` que `setup.py` mostró en esa PC) y se ve una única vez.
+- **Autenticación admin→servidor**: distinta de la anterior. El panel web usa login usuario/contraseña (`POST /auth/login`) y un JWT guardado en cookie `HttpOnly`, no la API key de ninguna PC.
+- **Cifrado en tránsito (TLS)**: opcional pero fuertemente recomendado — sin él, la PII de estudiantes y `X-Kiosk-Key` viajan en texto plano por la LAN. Como la PC maestra normalmente solo tiene IP interna (sin dominio público), se usa una CA interna propia generada con `servidor/scripts/generar_ca.sh` en vez de una CA pública — ver sección **TLS** arriba. El certificado de la CA (`ca.pem`) es lo único que hay que distribuir a cada kiosko.
+- **Offline-first**: si la red cae, el kiosko sigue funcionando (login/registro contra su caché SQLite local, sesión con temporizador local) y acumula sesiones/cambios pendientes; los reintenta solo cuando `hay_conexion()` vuelve a dar `True`, sin intervención manual.
 
-Guía de instalación del cliente: ver `biblioteca_cliente/docs/desarrollo/despliegue.md`.
+## Orden de despliegue del sistema completo (paso a paso)
+
+### Fase 1 — PC maestra (este servidor)
+
+1. Elegir qué máquina de la sala (o servidor/VM dedicado) hará de PC maestra y anotar su **IP en la LAN** (`ip a` / `ipconfig`) — todas las PCs hijas se configurarán apuntando a esa IP.
+2. Instalar Docker + Docker Compose en esa máquina si no los tiene.
+3. Clonar/copiar este repo (`biblioteca_servidor`) ahí y seguir la sección **Opción recomendada: Docker Compose** de arriba: `.env`, `SECRET_KEY`, `ADMIN_PASS_HASH` propio, `KIOSK_API_KEY` opcional.
+4. Decidir si se usará TLS (recomendado). Si sí: correr `servidor/scripts/generar_ca.sh <IP-de-la-PC-maestra>` **ahora**, antes de configurar las PCs hijas, y completar `TLS_CERT_PATH`/`TLS_KEY_PATH` en el `.env` — ver sección **TLS** arriba.
+5. Levantar con `docker compose -f docker-compose.prod.yml up -d --build`.
+6. Verificar que responde: `curl http://<IP-PC-maestra>:8000/health` (o `curl -k https://<IP>:8000/health` con TLS) desde otra PC de la misma LAN — si no responde, revisar firewall de la PC maestra (puerto `8000` entrante) antes de seguir.
+7. Entrar al panel (`http://<IP-PC-maestra>:8000/`), iniciar sesión con `ADMIN_USER`/la contraseña usada para generar `ADMIN_PASS_HASH`, y cambiarla desde el panel (botón "Cambiar contraseña").
+
+### Fase 2 — cada PC hija (kiosko)
+
+Repetir esto en **cada una** de las PCs de la sala (empezar con 2-3 antes de hacerlo en todas):
+
+1. Copiar el repo `biblioteca_cliente` a la PC.
+2. Si se usa TLS: copiar el `ca.pem` generado en la Fase 1 (paso 4) a `cliente/ca.pem` en esta PC.
+3. Instalar dependencias e iniciar el asistente:
+   ```bash
+   cd cliente
+   pip install -r requirements.txt   # o --break-system-packages si PEP 668
+   python setup.py
+   ```
+4. En el asistente: nombre de la PC, URL del servidor (`https://<IP-PC-maestra>:8000` o `http://` solo si es a propósito), ruta al `ca.pem` copiado en el paso 2 si aplica.
+5. `setup.py` genera y muestra el `PC_ID` de esta PC — **antes de continuar el asistente**, ir al panel de la PC maestra (pestaña "PCs" → "Generar API key") con ese `PC_ID` y copiar la key generada de vuelta al asistente cuando la pida (se ve una sola vez).
+6. Definir el PIN de administrador del kiosko cuando se pida.
+7. Aceptar instalar el autostart (`.desktop` +, recomendado, servicio `systemd`) cuando `setup.py` lo ofrezca.
+8. (Producción) aplicar el bloqueo de escritorio a nivel de sistema si el compositor es GNOME — ver `docs/desarrollo/despliegue.md` de `biblioteca_cliente`, sección **Bloqueo de escritorio para producción**.
+
+### Fase 3 — verificación y rollout
+
+1. Con 2-3 PCs configuradas, en el panel de la PC maestra (pestaña "PCs") confirmar que cada una aparece, con heartbeat de estado y de hardware llegando, y que una sesión de prueba (login con un carnet de prueba) aparece en la pestaña "Sesiones".
+2. Recién con eso confirmado, repetir la Fase 2 en el resto de las PCs de la sala.
+3. (Opcional) exponer el panel fuera de la LAN vía túnel Cloudflare (`cloudflared/`, no incluido en este repo) en vez de abrir puertos hacia internet.
+4. Agendar en cron de la PC maestra `backup_db.sh` (ver sección **Backups de MySQL**) y, si hay TLS, `verificar_vencimiento_cert.sh` (ver sección **TLS**).
+5. Repasar el **Checklist de seguridad antes de producción** de arriba.
+
+Guía de instalación del cliente con más detalle: ver `biblioteca_cliente/docs/desarrollo/despliegue.md`.
