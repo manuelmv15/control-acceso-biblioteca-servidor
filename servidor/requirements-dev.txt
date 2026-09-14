@@ -1,0 +1,6 @@
+# Dependencias solo para desarrollo/CI (no se instalan en la imagen Docker de
+# producción, ver Dockerfile). `pip install -r requirements-dev.txt` ya trae
+# requirements.txt porque los tests importan los módulos reales de la app
+# (routers/auth.py necesita fastapi, PyJWT, etc. para poder importarse).
+-r requirements.txt
+pytest==8.3.4
