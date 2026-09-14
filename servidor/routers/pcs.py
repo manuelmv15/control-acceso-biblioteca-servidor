@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from db import pcs as db_pcs
-from routers.auth import require_auth, generar_api_key, hash_api_key
+from routers.auth import require_auth, generar_api_key, hash_api_key, PcId
 
 router = APIRouter(prefix="/pcs", tags=["pcs"], dependencies=[Depends(require_auth)])
 log = logging.getLogger("uvicorn.error")
@@ -13,7 +13,7 @@ def listar_pcs():
 
 
 @router.post("/{pc_id}/mantenimiento")
-def registrar_mantenimiento(pc_id: str, request: Request, actor: dict = Depends(require_auth)):
+def registrar_mantenimiento(pc_id: PcId, request: Request, actor: dict = Depends(require_auth)):
     ip = request.client.host if request.client else "desconocida"
     if not db_pcs.registrar_mantenimiento(pc_id):
         log.warning("Mantenimiento en PC %s rechazado (no encontrada) — %s (%s) desde %s", pc_id, actor.get("sub"), actor.get("role"), ip)
@@ -23,7 +23,7 @@ def registrar_mantenimiento(pc_id: str, request: Request, actor: dict = Depends(
 
 
 @router.post("/{pc_id}/api-key")
-def generar_api_key_pc(pc_id: str, request: Request, actor: dict = Depends(require_auth)):
+def generar_api_key_pc(pc_id: PcId, request: Request, actor: dict = Depends(require_auth)):
     """Genera (o rota) la API key dedicada de una PC. El valor en texto plano
     se devuelve una única vez en esta respuesta — el servidor solo guarda su
     hash (`hash_api_key`) y no hay forma de recuperarlo después; si se
@@ -38,7 +38,7 @@ def generar_api_key_pc(pc_id: str, request: Request, actor: dict = Depends(requi
 
 
 @router.delete("/{pc_id}/api-key", status_code=204)
-def revocar_api_key_pc(pc_id: str, request: Request, actor: dict = Depends(require_auth)):
+def revocar_api_key_pc(pc_id: PcId, request: Request, actor: dict = Depends(require_auth)):
     """Revoca la key de una PC (queda sin key configurada hasta que se
     genere una nueva). No borra la PC ni su historial."""
     ip = request.client.host if request.client else "desconocida"

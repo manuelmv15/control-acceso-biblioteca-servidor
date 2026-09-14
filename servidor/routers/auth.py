@@ -6,13 +6,14 @@ import os
 import secrets
 import time
 from datetime import datetime, timedelta
-from typing import Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from typing import Annotated, Optional
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from db import admins as db_admins
 from db import pcs as db_pcs
 from models import LoginRequest, Token, CambiarPasswordRequest
+from models.tipos import PC_ID_PATTERN
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger("uvicorn.error")
@@ -76,6 +77,13 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = int(os.environ.get("TOKEN_EXPIRE_HOURS") or 24)
 
 KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
+
+# Tipo para el `pc_id` recibido como segmento de URL (`/pcs/{pc_id}/...`,
+# `/pcs/{pc_id}/hardware`) — mismo `PC_ID_PATTERN` que ya validan los payloads
+# de estado/sync/hardware (ver models/tipos.py). Antes de esto un pc_id con
+# saltos de línea llegaba tal cual hasta los logs de routers/pcs.py; con el
+# patrón, FastAPI rechaza esa URL con 422 antes de que el endpoint corra.
+PcId = Annotated[str, Path(pattern=PC_ID_PATTERN)]
 
 # Mismo criterio que `SecurityHeadersMiddleware` en `main.py` para decidir si manda HSTS:
 # la cookie de sesión del panel (`_set_auth_cookies`) solo lleva `Secure` si este proceso
@@ -277,7 +285,7 @@ def require_kiosk_or_admin(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     x_kiosk_key: Optional[str] = Header(None, alias="X-Kiosk-Key"),
-    x_pc_id: Optional[str] = Header(None, alias="X-PC-Id"),
+    x_pc_id: Optional[str] = Header(None, alias="X-PC-Id", pattern=PC_ID_PATTERN),
 ) -> dict:
     """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer` o la cookie
     `access_token` del panel) o la API key de kiosko (`X-Kiosk-Key`). La key de kiosko es

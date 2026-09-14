@@ -1,12 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from .tipos import SexoValido
+from .tipos import SexoValido, PC_ID_PATTERN
 
 
 class Sesion(BaseModel):
     id: str = Field(max_length=100)
-    pc_id: str = Field(max_length=100)
+    pc_id: str = Field(max_length=100, pattern=PC_ID_PATTERN)
     carnet: Optional[str] = Field(default=None, max_length=30, pattern=r"^[A-Z]{2}\d{5}$")
     hora_inicio: str = Field(max_length=32)
     hora_fin: Optional[str] = Field(default=None, max_length=32)

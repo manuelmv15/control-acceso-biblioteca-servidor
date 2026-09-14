@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from .tipos import SexoValido
+from .tipos import SexoValido, PC_ID_PATTERN
 
 
 class EstadoPayload(BaseModel):
-    pc_id: str = Field(max_length=100)
+    pc_id: str = Field(max_length=100, pattern=PC_ID_PATTERN)
     pc_nombre: Optional[str] = Field(default=None, max_length=255)
     sesion_activa: bool
     carnet: Optional[str] = Field(default=None, max_length=30, pattern=r"^[A-Z]{2}\d{5}$")
