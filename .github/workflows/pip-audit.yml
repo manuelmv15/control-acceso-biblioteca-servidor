@@ -1,8 +1,9 @@
-name: Auditoría de dependencias
+name: Auditoría de dependencias y calidad de código
 
 # Corre pip-audit en cada push/PR y una vez por semana para no depender de
 # que alguien lo ejecute a mano, un chequeo de sintaxis barato (py_compile)
-# como red mínima, y la suite de tests de servidor/tests/ (pytest).
+# como red mínima, la suite de tests de servidor/tests/ (pytest), linting
+# (ruff, configurado en pyproject.toml) y SAST (bandit).
 
 on:
   push:
@@ -46,3 +47,29 @@ jobs:
         run: pip install -r servidor/requirements-dev.txt
       - name: Correr tests
         run: pytest servidor/tests
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar ruff
+        run: pip install ruff==0.16.7
+      - name: Lint (reglas y excepciones en pyproject.toml)
+        run: ruff check servidor
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar bandit
+        run: pip install bandit==1.9.4
+      # -c pyproject.toml: bandit no autodetecta [tool.bandit] como ruff con
+      # su propia sección, hay que pasarle el archivo explícitamente.
+      - name: SAST (excepciones documentadas y justificadas en pyproject.toml)
+        run: bandit -r servidor -x servidor/tests -c pyproject.toml

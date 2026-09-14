@@ -124,11 +124,54 @@ TLS_KEY_PATH=/certs/server.key
 
 El certificado del servidor vence en ~825 días (2.25 años) — no hay renovación automática como con una CA pública, calendarizarla (volver a correr `generar_ca.sh` reusando la misma CA, o el script completo si también hace falta rotar la CA).
 
+`servidor/scripts/verificar_vencimiento_cert.sh` avisa (código de salida != 0) cuando el certificado de servidor o la CA están a menos de 60 días de vencer, para no depender de acordarse manualmente. Agregarlo a cron en la PC maestra (semanal, por ejemplo):
+
+```
+0 8 * * 1 cd /ruta/al/repo && ./servidor/scripts/verificar_vencimiento_cert.sh >> /var/log/biblioteca-certs.log 2>&1
+```
+
+Renovar (certificado de servidor solamente, reusando la CA existente — no hace falta redistribuir nada a los kioscos):
+
+```bash
+cd servidor
+./scripts/renovar_cert_servidor.sh 192.168.x.x
+docker compose -f ../docker-compose.prod.yml restart servidor
+```
+
+(Si en cambio hace falta rotar también la CA, borrar `certs/ca.key`/`ca.pem` a mano y correr `generar_ca.sh` de nuevo — eso sí exige redistribuir el `ca.pem` nuevo a los 16 kioscos.)
+
 `docker-compose.yml` (desarrollo) no necesita nada de esto: corre sobre `localhost`, que sí está permitido en `http://` sin restricción.
 
 ### Conexión servidor→MySQL
 
 Por defecto (`DB_SSL_CA` vacía) esta conexión va sin cifrar, sin impacto práctico mientras `db` y `servidor` compartan la red interna de Docker Compose, como en ambos `docker-compose*.yml` de este repo. Si en algún momento la base de datos se mueve fuera de esa red (un managed DB en la nube, otra máquina de la LAN), fijar `DB_SSL_CA` con la ruta al CA cert correspondiente — normalmente lo entrega el propio proveedor de la base de datos; puede colocarse dentro de `/certs` para reutilizar el volumen que ya monta `TLS_CERTS_DIR`.
+
+## Backups de MySQL
+
+El volumen `db_data` no tiene ningún mecanismo de backup automático por sí solo (un `docker compose down -v` o un disco corrupto se lleva todo). `servidor/scripts/backup_db.sh` vuelca la base vía `mysqldump` (sin detener el contenedor) a un `.sql.gz`, y conserva los últimos 14 por defecto:
+
+```bash
+# desde la raíz del repo
+./servidor/scripts/backup_db.sh /ruta/a/backups docker-compose.prod.yml
+```
+
+Para que corra solo, agregarlo a cron en la PC maestra (diario a las 3am, por ejemplo):
+
+```
+0 3 * * * cd /ruta/al/repo && ./servidor/scripts/backup_db.sh /ruta/a/backups docker-compose.prod.yml >> /var/log/biblioteca-backup.log 2>&1
+```
+
+Restaurar (DESTRUCTIVO — sobreescribe la base actual):
+
+```bash
+./servidor/scripts/restore_db.sh /ruta/a/backups/biblioteca-20260913-030000.sql.gz docker-compose.prod.yml
+```
+
+Los backups tienen la misma PII de estudiantes que la base — guardarlos fuera de la PC maestra (otro disco, almacenamiento cifrado) y nunca en el propio repo (`*.sql.gz` y `/backups/` están en `.gitignore`).
+
+## Observabilidad
+
+Más allá del `HEALTHCHECK` de Docker (que solo dice si el proceso responde), `GET /metrics` expone métricas en formato Prometheus (conteo y latencia de requests por endpoint/método/status — nada de negocio ni PII). Apagado por defecto; activarlo con `ENABLE_METRICS=true` en el `.env`. Sin autenticación propia — si se activa en producción, restringir el acceso a nivel de red (firewall, o que solo el scraper de Prometheus llegue a ese puerto).
 
 ## Checklist de seguridad antes de producción
 
@@ -139,6 +182,7 @@ Por defecto (`DB_SSL_CA` vacía) esta conexión va sin cifrar, sin impacto prác
 - [ ] `CORS_ORIGINS` configurado solo si el panel se sirve desde un origen distinto a la API (no es necesario por defecto).
 - [ ] `TLS_CERT_PATH`/`TLS_KEY_PATH` configuradas (ver sección **TLS**) y `ca.pem` distribuido a los 16 kioscos — si se decide operar sin TLS a propósito, confirmar que cada `config.ini` tiene `permitir_http_inseguro = true` fijado conscientemente, no por omisión.
 - [ ] Si se expone fuera de la red local, hacerlo vía túnel Cloudflare (`cloudflared/`) en lugar de abrir puertos directamente.
+- [ ] `backup_db.sh` agendado en cron en la PC maestra (ver sección **Backups de MySQL**) y probado al menos una vez `restore_db.sh` contra una base de prueba.
 - [ ] `ENABLE_API_DOCS` sin fijar (o en `false`) — `/docs`/`/redoc`/`/openapi.json` quedan deshabilitados.
 - [ ] Una sola réplica del servicio `servidor` (los `docker-compose*.yml` de este repo no definen `deploy.replicas`, así que por defecto ya es una — solo aplica si en algún momento se orquesta distinto, p. ej. Swarm/Kubernetes). Dentro del contenedor, `docker-entrypoint.sh` ya aborta el arranque si `UVICORN_WORKERS` viene fijada en algo distinto de `1`: el rate limiting de `/auth/login` y las ventanas de lecturas/escrituras de kiosko (`servidor/routers/auth.py`) se llevan en memoria de un solo proceso, no en un almacén compartido.
 

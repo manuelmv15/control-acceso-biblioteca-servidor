@@ -1,14 +1,18 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
 from db import init_db
-from routers import auth, sync, estudiantes, reportes, estado, pcs, hardware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from observabilidad import MetricsMiddleware, metrics_payload
+from routers import auth, estado, estudiantes, hardware, pcs, reportes, sync
+from starlette.middleware.base import BaseHTTPMiddleware
 
 ENABLE_API_DOCS = os.environ.get("ENABLE_API_DOCS", "").strip().lower() in ("1", "true", "yes")
+# GET /metrics (Prometheus) -- apagado por defecto, igual que ENABLE_API_DOCS:
+# no hay motivo para exponer tráfico/latencias del servicio a quien no lo pidió.
+ENABLE_METRICS = os.environ.get("ENABLE_METRICS", "").strip().lower() in ("1", "true", "yes")
 
 app = FastAPI(
     title="Biblioteca Control",
@@ -68,6 +72,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "form-action 'self'; "
         "frame-ancestors 'none'"
     )
+    # El panel no usa cámara/micrófono/geolocalización/etc. — se deshabilitan
+    # todas para que un script inyectado (compromiso del CDN de Chart.js,
+    # por ejemplo) no pueda ni intentar pedir acceso a ninguna.
+    _PERMISSIONS_POLICY = (
+        "camera=(), microphone=(), geolocation=(), usb=(), payment=(), "
+        "accelerometer=(), gyroscope=(), magnetometer=()"
+    )
     _TLS_ACTIVO = bool(os.environ.get("TLS_CERT_PATH")) and bool(os.environ.get("TLS_KEY_PATH"))
 
     async def dispatch(self, request, call_next):
@@ -76,6 +87,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = self._CSP
+        response.headers["Permissions-Policy"] = self._PERMISSIONS_POLICY
         if self._TLS_ACTIVO:
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
@@ -91,6 +103,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if ENABLE_METRICS:
+    # Agregada al final (= la más externa del stack, ver orden de
+    # add_middleware de Starlette) para medir el tiempo de request completo,
+    # CORS/LimitBodySize/SecurityHeaders incluidos.
+    app.add_middleware(MetricsMiddleware)
+
+    @app.get("/metrics")
+    def metrics():
+        cuerpo, content_type = metrics_payload()
+        return Response(cuerpo, media_type=content_type)
 
 app.include_router(auth.router)
 app.include_router(sync.router)

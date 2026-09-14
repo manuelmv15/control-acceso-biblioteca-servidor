@@ -26,7 +26,8 @@ if scheme == "https":
     ctx.verify_mode = ssl.CERT_NONE
 
 try:
-    with urllib.request.urlopen(url, timeout=3, context=ctx) as resp:
+    # url es fija (localhost:8000/health), no viene de input externo.
+    with urllib.request.urlopen(url, timeout=3, context=ctx) as resp:  # nosec B310
         sys.exit(0 if resp.status == 200 else 1)
 except Exception:
     sys.exit(1)

@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
 from typing import Optional
 
-from .tipos import SexoValido, PC_ID_PATTERN
+from pydantic import BaseModel, Field
+
+from .tipos import PC_ID_PATTERN, SexoValido
 
 
 class Sesion(BaseModel):

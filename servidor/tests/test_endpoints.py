@@ -14,15 +14,14 @@ MySQL a esta suite."""
 
 from datetime import datetime
 
-import pytest
-from fastapi.testclient import TestClient
-
 import main
+import pytest
 from db import admins as db_admins
 from db import estado as db_estado
 from db import hardware as db_hardware
 from db import pcs as db_pcs
 from db import sesiones as db_sesiones
+from fastapi.testclient import TestClient
 from routers import auth as auth_module
 
 ADMIN_PASSWORD = "clave-correcta-del-admin"
@@ -45,6 +44,23 @@ def admin_sin_revocacion(monkeypatch):
 
 def _login(client, username="admin", password=ADMIN_PASSWORD):
     return client.post("/auth/login", json={"username": username, "password": password})
+
+
+# --- SecurityHeadersMiddleware --------------------------------------------
+
+def test_respuestas_incluyen_cabeceras_de_seguridad(client):
+    r = client.get("/health")
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert r.headers["X-Frame-Options"] == "DENY"
+    assert r.headers["Referrer-Policy"] == "no-referrer"
+    assert "default-src 'self'" in r.headers["Content-Security-Policy"]
+    # Ninguna de estas la usa el panel — se deshabilitan todas.
+    assert "camera=()" in r.headers["Permissions-Policy"]
+    assert "microphone=()" in r.headers["Permissions-Policy"]
+    assert "geolocation=()" in r.headers["Permissions-Policy"]
+    # No hay TLS en los tests (TLS_CERT_PATH/TLS_KEY_PATH no están seteadas):
+    # anunciar HSTS acá sería una promesa falsa al navegador.
+    assert "Strict-Transport-Security" not in r.headers
 
 
 # --- POST /auth/login / logout / me --------------------------------------

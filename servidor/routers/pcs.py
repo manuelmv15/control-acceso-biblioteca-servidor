@@ -1,7 +1,9 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request
+
 from db import pcs as db_pcs
-from routers.auth import require_auth, generar_api_key, hash_api_key, PcId
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from routers.auth import PcId, generar_api_key, hash_api_key, require_auth
 
 router = APIRouter(prefix="/pcs", tags=["pcs"], dependencies=[Depends(require_auth)])
 log = logging.getLogger("uvicorn.error")

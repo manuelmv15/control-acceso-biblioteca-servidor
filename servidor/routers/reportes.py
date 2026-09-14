@@ -1,6 +1,8 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+
 from db import reportes as db_reportes
+from fastapi import APIRouter, Depends, Query
+
 from routers.auth import require_auth
 
 router = APIRouter(prefix="/reportes", tags=["reportes"], dependencies=[Depends(require_auth)])

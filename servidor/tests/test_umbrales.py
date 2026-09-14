@@ -5,7 +5,7 @@ signo o de operador (`>` vs `>=`) en los límites pasa fácil desapercibido en
 una revisión manual y cambia en qué momento el panel avisa que una PC
 necesita mantenimiento."""
 
-from db.umbrales import calcular_estado, UMBRAL_CRITICO_HORAS, UMBRAL_PENDIENTE_HORAS
+from db.umbrales import UMBRAL_CRITICO_HORAS, UMBRAL_PENDIENTE_HORAS, calcular_estado
 
 
 def test_calcular_estado_none_si_no_hay_horas_reportadas():

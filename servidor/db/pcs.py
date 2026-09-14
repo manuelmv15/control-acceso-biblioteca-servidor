@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from .connection import conexion
 from .umbrales import calcular_estado
 

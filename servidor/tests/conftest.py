@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Los módulos de la app (routers, db, models) se importan como paquetes de
 # nivel superior (`from routers import auth`, no `from servidor.routers...`),
 # así que hace falta el directorio `servidor/` en sys.path — igual que
@@ -26,8 +28,6 @@ os.environ.setdefault("SECRET_KEY", "clave-de-prueba-solo-para-tests-no-usar-en-
 # MySQL con estos valores.
 os.environ.setdefault("DB_USER", "usuario-de-prueba-solo-para-tests")
 os.environ.setdefault("DB_PASSWORD", "clave-de-prueba-solo-para-tests")
-
-import pytest
 
 
 @pytest.fixture(autouse=True)

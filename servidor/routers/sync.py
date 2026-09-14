@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, Request
 from db import sesiones as db_sesiones
+from fastapi import APIRouter, Depends, Request
 from models import SyncPayload
+
 from routers.auth import limitar_escrituras_kiosko, verificar_pc_id
 
 router = APIRouter(prefix="/sync", tags=["sync"])

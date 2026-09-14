@@ -1,6 +1,7 @@
 import os
+from typing import Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 from .sesion import Sesion
 from .tipos import PC_ID_PATTERN
@@ -12,4 +13,4 @@ class SyncPayload(BaseModel):
     pc_id: str = Field(max_length=100, pattern=PC_ID_PATTERN)
     pc_nombre: Optional[str] = Field(default=None, max_length=255)
     ip: Optional[str] = Field(default=None, max_length=45)
-    sesiones: List[Sesion] = Field(max_length=SYNC_MAX_SESIONES)
+    sesiones: list[Sesion] = Field(max_length=SYNC_MAX_SESIONES)

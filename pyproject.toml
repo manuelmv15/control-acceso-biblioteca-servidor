@@ -1,0 +1,48 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+# Selección deliberada y acotada (no el default de ruff, que en versiones
+# recientes activa de más plugins — flake8-async, flake8-datetimez,
+# flake8-bandit, etc. — pensados para código que este proyecto no tiene
+# (nada async fuera del framework) o que ya cubre `bandit` por separado en
+# el job de SAST, y duplicarlo acá solo generaría ruido):
+# pyflakes (F), pycodestyle (E/W), isort (I), pyupgrade (UP),
+# flake8-bugbear (B) y flake8-comprehensions (C4).
+select = ["E", "F", "I", "UP", "B", "C4"]
+ignore = [
+    # `Depends(...)`/`Header(...)`/`Path(...)` como default de parámetro es
+    # el patrón estándar de FastAPI para inyección de dependencias, no el
+    # antipatrón de "mutable default argument" que B008 busca detectar.
+    "B008",
+    # El proyecto usa `Optional[X]` de `typing` de forma consistente en
+    # todos los modelos/routers; forzar `X | None` sería un cambio cosmético
+    # masivo sin relación con ningún bug real.
+    "UP045",
+    # El código existente ya tiene ~40 líneas por encima de 110 columnas
+    # (mensajes de log con varios `%s`, SQL embebido, literales de
+    # seed_demo.py) repartidas en la mayoría de los módulos. Reformatear todo
+    # eso a mano solo por el lint, en archivos que no cambiaron por otra
+    # razón, es puro riesgo (typos, strings rotos) sin beneficio funcional
+    # -- se deja para cuando se adopte un formateador automático (`ruff
+    # format`/`black`) en vez de perseguirlo regla por regla.
+    "E501",
+]
+
+[tool.bandit]
+skips = [
+    # Bandit marca como "posible SQL injection" cualquier `execute(f"...")`/
+    # `.format()` que contenga palabras clave de SQL, sin poder distinguir
+    # interpolación de una constante propia (UMBRAL_DISPONIBLE_MINUTOS en
+    # db/estado.py, una lista fija de comparaciones armada en Python en
+    # db/reportes.py::listar_sesiones, un nombre de tabla de una tupla fija
+    # en seed_demo.py::reset_database) de interpolar un valor externo. En
+    # los tres casos el dato variable de la request/usuario viaja siempre
+    # parametrizado (`%s` + tupla de params vía pymysql), nunca interpolado
+    # en el string — se verificó cada sitio a mano al agregar este job de
+    # SAST. Además, para un string multilínea bandit reporta la línea de una
+    # forma que no admite un `# nosec` inline confiable sin arriesgar
+    # corromper el propio literal SQL.
+    "B608",
+]

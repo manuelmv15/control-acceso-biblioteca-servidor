@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
 from db import hardware as db_hardware
+from fastapi import APIRouter, Depends
 from models import HardwarePayload
-from routers.auth import limitar_escrituras_kiosko, verificar_pc_id, PcId
+
+from routers.auth import PcId, limitar_escrituras_kiosko, verificar_pc_id
 
 router = APIRouter(prefix="/pcs", tags=["hardware"])
 

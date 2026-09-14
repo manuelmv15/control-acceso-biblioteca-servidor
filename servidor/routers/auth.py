@@ -7,12 +7,22 @@ import secrets
 import time
 from datetime import datetime, timedelta
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 import jwt
 from db import admins as db_admins
 from db import pcs as db_pcs
-from models import LoginRequest, Token, CambiarPasswordRequest
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Path,
+    Request,
+    Response,
+    status,
+)
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from models import CambiarPasswordRequest, LoginRequest, Token
 from models.tipos import PC_ID_PATTERN
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -217,7 +227,7 @@ def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido") from None
     if payload.get("role") == "admin" and _token_revocado(payload):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -433,7 +443,8 @@ def login(req: LoginRequest, request: Request, response: Response):
     # El cuerpo se conserva igual por compatibilidad con clientes no-navegador (scripts/API
     # que autentican con `Authorization: Bearer`, documentados en README.md).
     _set_auth_cookies(response, token, csrf_token)
-    return Token(access_token=token, token_type="bearer")
+    # "bearer" es el token_type de OAuth2, no una contraseña.
+    return Token(access_token=token, token_type="bearer")  # nosec B106
 
 
 @router.post("/logout")
@@ -484,4 +495,5 @@ def cambiar_password(req: CambiarPasswordRequest, response: Response, usuario: d
     csrf_token = secrets.token_urlsafe(32)
     token = create_token({"sub": username, "role": "admin", "csrf": csrf_token})
     _set_auth_cookies(response, token, csrf_token)
-    return Token(access_token=token, token_type="bearer")
+    # "bearer" es el token_type de OAuth2, no una contraseña.
+    return Token(access_token=token, token_type="bearer")  # nosec B106

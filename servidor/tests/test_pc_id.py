@@ -8,12 +8,10 @@ por un doble de prueba, igual que en test_auth.py."""
 from datetime import datetime
 
 import pytest
+from _helpers import make_request
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-
 from routers import auth
-
-from _helpers import make_request
 
 
 def _bearer(token):

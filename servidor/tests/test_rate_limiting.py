@@ -8,13 +8,10 @@ contadores se limpian entre tests vía el fixture autouse de conftest.py."""
 import time
 
 import pytest
+from _helpers import make_request
 from fastapi import HTTPException, Response
-
 from models import LoginRequest
 from routers import auth
-
-from _helpers import make_request
-
 
 # --- POST /auth/login: bloqueo por IP tras demasiados fallos -------------
 

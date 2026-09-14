@@ -1,6 +1,8 @@
 import re
-import pymysql
 from datetime import datetime
+
+import pymysql
+
 from .connection import conexion
 
 
@@ -81,7 +83,7 @@ def eliminar(carnet):
             conn.execute("DELETE FROM estudiantes WHERE carnet = %s", (carnet,))
             conn.commit()
         except pymysql.err.IntegrityError:
-            raise TieneSesionesRegistradas()
+            raise TieneSesionesRegistradas() from None
 
 
 def upsert_desde_sesion(conn, carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro):

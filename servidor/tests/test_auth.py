@@ -8,9 +8,7 @@ doble de prueba."""
 from datetime import datetime, timedelta
 
 import pytest
-
 from routers import auth
-
 
 # --- verificar_password / generar_hash ---------------------------------
 

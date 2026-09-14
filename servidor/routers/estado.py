@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
 from db import estado as db_estado
+from fastapi import APIRouter, Depends
 from models import EstadoPayload
-from routers.auth import require_auth, limitar_escrituras_kiosko, verificar_pc_id
+
+from routers.auth import limitar_escrituras_kiosko, require_auth, verificar_pc_id
 
 router = APIRouter(prefix="/estado", tags=["estado"])
 
