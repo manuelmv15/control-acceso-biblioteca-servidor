@@ -7,7 +7,7 @@ import secrets
 import time
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from db import admins as db_admins
@@ -66,6 +66,16 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = int(os.environ.get("TOKEN_EXPIRE_HOURS") or 24)
 
 KIOSK_API_KEY = os.environ.get("KIOSK_API_KEY", "")
+
+# Mismo criterio que `SecurityHeadersMiddleware` en `main.py` para decidir si manda HSTS:
+# la cookie de sesión del panel (`_set_auth_cookies`) solo lleva `Secure` si este proceso
+# sirve TLS él mismo. Si el TLS lo termina un proxy delante de este proceso, hay que forzar
+# `Secure` ahí (o exponer esa config acá) — ver `docs/desarrollo/despliegue.md`.
+_TLS_ACTIVO = bool(os.environ.get("TLS_CERT_PATH")) and bool(os.environ.get("TLS_KEY_PATH"))
+
+# Métodos que cambian estado: los únicos donde `_verificar_csrf` exige el header
+# X-CSRF-Token cuando la autenticación vino de la cookie del panel (ver más abajo).
+_METODOS_MUTANTES = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def generar_api_key() -> str:
@@ -201,24 +211,71 @@ def verify_token(token: str) -> dict:
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def require_auth(credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme)) -> dict:
-    """Dependencia FastAPI: exige `Authorization: Bearer <token>` válido, 401 si falta o no verifica."""
-    if credentials is None:
+def _set_auth_cookies(response: Response, token: str, csrf_token: str) -> None:
+    """Guarda la sesión del panel admin en dos cookies en vez del JWT plano que el panel
+    históricamente devolvía en el JSON de `/auth/login` para que el propio JS lo guardara en
+    `sessionStorage` (ver `panel/js/api.js`) — cualquier XSS futuro en el panel podía leerlo
+    de ahí y robar la sesión completa. `access_token` es `HttpOnly` (inalcanzable desde JS);
+    `csrf_token` no lo es, porque el panel sí necesita leerla para reenviarla como header en
+    escrituras (ver `_verificar_csrf`) — no es sensible por sí sola, solo sirve junto con la
+    cookie HttpOnly. `SameSite=Strict` porque el panel nunca necesita que viaje en un request
+    de origen distinto; `Secure` según `_TLS_ACTIVO`."""
+    max_age = TOKEN_EXPIRE_HOURS * 3600
+    response.set_cookie("access_token", token, httponly=True, secure=_TLS_ACTIVO,
+                         samesite="strict", max_age=max_age, path="/")
+    response.set_cookie("csrf_token", csrf_token, httponly=False, secure=_TLS_ACTIVO,
+                         samesite="strict", max_age=max_age, path="/")
+
+
+def _verificar_csrf(request: Request, payload: dict) -> None:
+    """Si la autenticación de este request vino de la cookie `access_token` (no de un header
+    `Authorization: Bearer`, que un navegador nunca adjunta solo — eso lo hace a mano el JS
+    del panel o un script), el navegador manda la cookie automáticamente en cualquier
+    request, incluido uno de origen cruzado. `SameSite=Strict` ya bloquea eso en navegadores
+    actuales, pero como defensa en profundidad se exige además, en métodos que cambian
+    estado, un header `X-CSRF-Token` igual al claim `csrf` firmado dentro del propio JWT
+    (patrón doble-submit: no hace falta guardar nada extra en el servidor — alcanza con que
+    el mismo valor también viaje en la cookie legible `csrf_token` y el panel la reenvíe)."""
+    if request.method not in _METODOS_MUTANTES:
+        return
+    header_csrf = request.headers.get("X-CSRF-Token", "")
+    if not header_csrf or not hmac.compare_digest(header_csrf, payload.get("csrf", "")):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token CSRF inválido o ausente")
+
+
+def _autenticar_admin(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> dict:
+    """Verifica un JWT de admin llegado por `Authorization: Bearer` (scripts/API — no exige
+    CSRF, un navegador nunca lo adjunta por su cuenta) o por la cookie `access_token` del
+    panel web (sí exige CSRF vía `_verificar_csrf`)."""
+    if credentials is not None:
+        return verify_token(credentials.credentials)
+    token = request.cookies.get("access_token")
+    if token is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token requerido")
-    return verify_token(credentials.credentials)
+    payload = verify_token(token)
+    _verificar_csrf(request, payload)
+    return payload
+
+
+def require_auth(request: Request, credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme)) -> dict:
+    """Dependencia FastAPI: exige un JWT de admin válido por `Authorization: Bearer` o por la
+    cookie `access_token` (panel web) — 401 si falta o no verifica."""
+    return _autenticar_admin(request, credentials)
 
 
 def require_kiosk_or_admin(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
     x_kiosk_key: Optional[str] = Header(None, alias="X-Kiosk-Key"),
     x_pc_id: Optional[str] = Header(None, alias="X-PC-Id"),
 ) -> dict:
-    """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer`) o la API key de
-    kiosko (`X-Kiosk-Key`). La key de kiosko es por PC: el cliente manda también `X-PC-Id`
-    y se valida contra el hash guardado en `pcs.api_key_hash` para esa PC (generado desde
-    el panel con `POST /pcs/{pc_id}/api-key`), así una key filtrada de un equipo se puede
-    revocar (`DELETE /pcs/{pc_id}/api-key`) sin afectar a los demás y el `sub` del actor
-    identifica a la PC real, no una etiqueta genérica.
+    """Dependencia FastAPI: acepta JWT de admin (`Authorization: Bearer` o la cookie
+    `access_token` del panel) o la API key de kiosko (`X-Kiosk-Key`). La key de kiosko es
+    por PC: el cliente manda también `X-PC-Id` y se valida contra el hash guardado en
+    `pcs.api_key_hash` para esa PC (generado desde el panel con `POST /pcs/{pc_id}/api-key`),
+    así una key filtrada de un equipo se puede revocar (`DELETE /pcs/{pc_id}/api-key`) sin
+    afectar a los demás y el `sub` del actor identifica a la PC real, no una etiqueta
+    genérica.
 
     Si `X-PC-Id` no trae una key configurada, se compara además contra la
     `KIOSK_API_KEY` compartida (`.env`) como vía de compatibilidad para equipos que
@@ -236,8 +293,8 @@ def require_kiosk_or_admin(
             x_pc_id or "(no enviado)",
         )
         return {"sub": "kiosko", "role": "kiosk"}
-    if credentials is not None:
-        return verify_token(credentials.credentials)
+    if credentials is not None or "access_token" in request.cookies:
+        return _autenticar_admin(request, credentials)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se requiere JWT de admin o API key de kiosko")
 
 
@@ -325,7 +382,7 @@ def limitar_escrituras_kiosko(request: Request, actor: dict = Depends(require_ki
 
 
 @router.post("/login", response_model=Token)
-def login(req: LoginRequest, request: Request):
+def login(req: LoginRequest, request: Request, response: Response):
     # A diferencia de limitar_lecturas_estudiante/limitar_escrituras_kiosko, acá todavía no hay
     # actor autenticado en el momento de contar el intento — es justo lo que este endpoint está
     # evaluando — así que el límite sigue atado a la IP. Riesgo aceptado: credenciales de admin
@@ -348,12 +405,38 @@ def login(req: LoginRequest, request: Request):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas")
 
     _intentos_fallidos.pop(ip, None)
-    token = create_token({"sub": req.username, "role": "admin"})
+    csrf_token = secrets.token_urlsafe(32)
+    token = create_token({"sub": req.username, "role": "admin", "csrf": csrf_token})
+    # El panel ya no guarda este JSON en sessionStorage (ver M3 en el histórico de auditorías
+    # y panel/js/api.js): la sesión real vive en las cookies que setea `_set_auth_cookies`.
+    # El cuerpo se conserva igual por compatibilidad con clientes no-navegador (scripts/API
+    # que autentican con `Authorization: Bearer`, documentados en README.md).
+    _set_auth_cookies(response, token, csrf_token)
     return Token(access_token=token, token_type="bearer")
 
 
+@router.post("/logout")
+def logout(response: Response):
+    """Limpia las cookies de sesión del panel (`access_token`, `csrf_token`). No exige estar
+    autenticado ni un `X-CSRF-Token` válido: en el peor caso un logout forzado por CSRF solo
+    cierra una sesión ajena, no compromete ni expone nada, así que no vale la pena la
+    fricción adicional acá."""
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("csrf_token", path="/")
+    return {"ok": True}
+
+
+@router.get("/me")
+def me(usuario: dict = Depends(require_auth)):
+    """Usado por el panel al cargar la página para saber si la sesión (cookie `access_token`,
+    `HttpOnly` y por lo tanto ilegible desde JS) sigue siendo válida, y así decidir si mostrar
+    el panel o la pantalla de login — reemplaza la comprobación que antes hacía leyendo
+    `sessionStorage` directamente en el cliente."""
+    return {"username": usuario.get("sub")}
+
+
 @router.put("/password", response_model=Token)
-def cambiar_password(req: CambiarPasswordRequest, usuario: dict = Depends(require_auth)):
+def cambiar_password(req: CambiarPasswordRequest, response: Response, usuario: dict = Depends(require_auth)):
     """Permite al administrador ya autenticado cambiar su propia contraseña. Así quien
     despliega la app puede fijar unas credenciales iniciales (`ADMIN_USER`/`ADMIN_PASS_HASH`
     en el `.env`, ver `db/schema.py`) sin que sean las que se usan a largo plazo: el
@@ -362,9 +445,10 @@ def cambiar_password(req: CambiarPasswordRequest, usuario: dict = Depends(requir
 
     El cambio de contraseña revoca (vía `verify_token`/`_token_revocado`) cualquier JWT
     emitido antes de este momento, incluido el que se usó para autenticar esta misma
-    petición — por eso se devuelve acá un token nuevo, para que la sesión actual del panel
-    pueda seguir sin forzar un re-login inmediato; cualquier otra sesión con el token viejo
-    (robada o no) sí queda cerrada en su próxima petición."""
+    petición — por eso se emite acá un token nuevo (y se reescriben las cookies con
+    `_set_auth_cookies`) para que la sesión actual del panel pueda seguir sin forzar un
+    re-login inmediato; cualquier otra sesión con el token viejo (robada o no) sí queda
+    cerrada en su próxima petición."""
     username = usuario["sub"]
     hash_almacenado = db_admins.obtener_hash(username)
     if hash_almacenado is None or not verificar_password(req.password_actual, hash_almacenado):
@@ -376,5 +460,7 @@ def cambiar_password(req: CambiarPasswordRequest, usuario: dict = Depends(requir
         )
     db_admins.actualizar_password(username, generar_hash(req.password_nueva))
     log.info("Contraseña de administrador '%s' actualizada", username)
-    token = create_token({"sub": username, "role": "admin"})
+    csrf_token = secrets.token_urlsafe(32)
+    token = create_token({"sub": username, "role": "admin", "csrf": csrf_token})
+    _set_auth_cookies(response, token, csrf_token)
     return Token(access_token=token, token_type="bearer")

@@ -58,11 +58,13 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 
 ## Endpoints de la API
 
-> 🔒 = requiere `Authorization: Bearer <token>` (obtenido en `/auth/login`), 401 si falta o es inválido. Los marcados **kiosko o admin** aceptan también los headers `X-Kiosk-Key` + `X-PC-Id` de una PC (`require_kiosk_or_admin`, ver más abajo) — el cliente de escritorio no maneja JWT, así que usa esta vía.
+> 🔒 = requiere JWT de admin válido, por `Authorization: Bearer <token>` (scripts/API) o por la cookie `access_token` que setea `/auth/login` (panel web) — 401 si falta o es inválido. Los marcados **kiosko o admin** aceptan también los headers `X-Kiosk-Key` + `X-PC-Id` de una PC (`require_kiosk_or_admin`, ver más abajo) — el cliente de escritorio no maneja JWT, así que usa esta vía. En escrituras (🔒 sin ser kiosko) autenticadas por la cookie, además se exige un header `X-CSRF-Token` (ver "Panel web" más abajo); autenticando por `Authorization: Bearer` no hace falta.
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/auth/login` | pública | `{username, password}` → `{access_token, token_type}` |
+| `POST` | `/auth/login` | pública | `{username, password}` → `{access_token, token_type}` + cookies `access_token`/`csrf_token` |
+| `POST` | `/auth/logout` | pública | Limpia las cookies `access_token`/`csrf_token` |
+| `GET` | `/auth/me` | 🔒 | `{"username": ...}` — usado por el panel para saber si la sesión (cookie) sigue viva |
 | `PUT` | `/auth/password` | 🔒 | Cambiar contraseña propia del admin autenticado |
 | `POST` | `/sync` | 🔒 kiosko o admin | Recibe lote de sesiones offline-first (upsert idempotente) |
 | `POST` | `/estado` | 🔒 kiosko o admin | Heartbeat de estado en vivo de una PC |
@@ -105,7 +107,7 @@ Estas horas son `horas_uso_acumuladas` (tiempo real de encendido, reportado por 
 
 Ver checklist operativo en [`despliegue.md`](./despliegue.md#checklist-de-seguridad-antes-de-producción). Puntos relevantes para quien toca código:
 
-- `require_auth` (JWT, `routers/auth.py`) aplicado a nivel de router en `pcs.py`, `reportes.py`; solo a `GET` en `estado.py`; a `GET`/`DELETE` en `estudiantes.py`.
+- `require_auth` (JWT, `routers/auth.py`) aplicado a nivel de router en `pcs.py`, `reportes.py`; solo a `GET` en `estado.py`; a `GET`/`DELETE` en `estudiantes.py`. Acepta el JWT por `Authorization: Bearer` o por la cookie `access_token`; vía cookie, en métodos que cambian estado exige además `X-CSRF-Token` == claim `csrf` del JWT (`_verificar_csrf`, patrón doble-submit).
 - `require_kiosk_or_admin` (`routers/auth.py`) acepta JWT de admin **o** `X-Kiosk-Key` + `X-PC-Id` validados contra el hash guardado en `pcs.api_key_hash` para ese `pc_id` (`hash_api_key`); si esa PC no tiene key propia, cae como respaldo a la `KIOSK_API_KEY` compartida del `.env` (logueando advertencia). Usado en `POST/GET/PUT /estudiantes`, `POST /sync`, `POST /estado` y `POST /pcs/{pc_id}/hardware`. La key de cada PC se genera/rota/revoca solo-admin en `routers/pcs.py` (`POST`/`DELETE /pcs/{pc_id}/api-key`).
 - `TRUSTED_PROXIES` (`routers/auth.py`) acota en qué IPs se confía el header `X-Forwarded-For` para el rate limiting de `/auth/login`; vacío por defecto (siempre usa la IP de la conexión TCP directa). Las entradas de `_intentos_fallidos` se purgan solas cuando expiran y no vuelven a fallar.
 - Credenciales de admin viven en la tabla `admins` (no en `.env`); `ADMIN_USER`/`ADMIN_PASS_HASH` solo siembran el primer admin si la tabla está vacía (`db/schema.py::_sembrar_admin_inicial`).
@@ -115,7 +117,7 @@ Ver checklist operativo en [`despliegue.md`](./despliegue.md#checklist-de-seguri
 
 ## Panel web de administración (para quien lo modifica)
 
-SPA sin build step servida como estáticos bajo `/panel` (y también en `/`). Login con usuario/contraseña de admin (token JWT en `sessionStorage`).
+SPA sin build step servida como estáticos bajo `/panel` (y también en `/`). Login con usuario/contraseña de admin; la sesión ya no se guarda en `sessionStorage`, vive en la cookie `access_token` (`HttpOnly`, así un XSS futuro no podría leerla) que setea `/auth/login`. Al cargar la página, `App.init()` llama a `GET /auth/me` para saber si esa cookie sigue siendo válida (no puede leerla directamente). El panel sí lee la cookie complementaria `csrf_token` (no `HttpOnly`) para reenviarla como header `X-CSRF-Token` en cada escritura (`API.fetchRaw`, `js/api.js`) — es el lado "doble submit" que el servidor valida contra el claim `csrf` firmado dentro del JWT.
 
 | Vista | Archivos | Contenido |
 |---|---|---|

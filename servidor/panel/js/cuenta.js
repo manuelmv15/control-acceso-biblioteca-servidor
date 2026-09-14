@@ -26,11 +26,12 @@ const Cuenta = {
         if (nueva !== confirmar) { errEl.textContent = 'La confirmación no coincide con la contraseña nueva.'; return; }
 
         try {
-            const data = await API.cambiarPassword(actual, nueva);
-            // Cambiar la contraseña invalida el token anterior (ver PUT /auth/password en el
-            // servidor); sin guardar el nuevo acá, la siguiente petición del panel devolvería
-            // 401 y forzaría un logout inesperado justo después de guardar.
-            if (data && data.access_token) API.setToken(data.access_token);
+            // Cambiar la contraseña invalida la cookie de sesión anterior (ver PUT
+            // /auth/password en el servidor); el propio endpoint reescribe las cookies
+            // (access_token/csrf_token) con una sesión nueva, así que acá no hace falta
+            // guardar nada a mano — de lo contrario la siguiente petición del panel
+            // devolvería 401 y forzaría un logout inesperado justo después de guardar.
+            await API.cambiarPassword(actual, nueva);
             okEl.classList.remove('hidden');
             document.getElementById('cuenta-pass-actual').value = '';
             document.getElementById('cuenta-pass-nueva').value = '';
