@@ -1,8 +1,14 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request
+
 from db import estudiantes as db_estudiantes
+from fastapi import APIRouter, Depends, HTTPException, Request
 from models import Estudiante
-from routers.auth import require_auth, require_kiosk_or_admin
+
+from routers.auth import (
+    limitar_escrituras_kiosko,
+    limitar_lecturas_estudiante,
+    require_auth,
+)
 
 router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
 log = logging.getLogger("uvicorn.error")
@@ -15,13 +21,13 @@ def _actor_ip(request: Request, actor: dict) -> str:
 
 @router.post("", status_code=201)
 def registrar_estudiante(
-    est: Estudiante, request: Request, actor: dict = Depends(require_kiosk_or_admin)
+    est: Estudiante, request: Request, actor: dict = Depends(limitar_escrituras_kiosko)
 ):
     try:
         db_estudiantes.crear(est)
     except db_estudiantes.CarnetYaRegistrado:
         log.warning("Alta de estudiante %s rechazada (carnet ya registrado) — %s", est.carnet, _actor_ip(request, actor))
-        raise HTTPException(status_code=409, detail="Carnet ya registrado")
+        raise HTTPException(status_code=409, detail="Carnet ya registrado") from None
     log.info("Alta de estudiante %s — %s", est.carnet, _actor_ip(request, actor))
     return {"carnet": est.carnet}
 
@@ -31,23 +37,23 @@ def listar_estudiantes():
     return db_estudiantes.listar()
 
 
-@router.get("/{carnet}", dependencies=[Depends(require_kiosk_or_admin)])
+@router.get("/{carnet}", dependencies=[Depends(limitar_lecturas_estudiante)])
 def obtener_estudiante(carnet: str):
     try:
         return db_estudiantes.obtener(carnet)
     except db_estudiantes.EstudianteNoEncontrado:
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado") from None
 
 
 @router.put("/{carnet}")
 def actualizar_estudiante(
-    carnet: str, est: Estudiante, request: Request, actor: dict = Depends(require_kiosk_or_admin)
+    carnet: str, est: Estudiante, request: Request, actor: dict = Depends(limitar_escrituras_kiosko)
 ):
     try:
         db_estudiantes.actualizar(carnet, est)
     except db_estudiantes.EstudianteNoEncontrado:
         log.warning("Actualización de estudiante %s rechazada (no encontrado) — %s", carnet, _actor_ip(request, actor))
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado") from None
     log.info("Actualización de estudiante %s — %s", carnet, _actor_ip(request, actor))
     return {"ok": True, "carnet": carnet}
 
@@ -58,8 +64,8 @@ def eliminar_estudiante(carnet: str, request: Request, actor: dict = Depends(req
         db_estudiantes.eliminar(carnet)
     except db_estudiantes.EstudianteNoEncontrado:
         log.warning("Baja de estudiante %s rechazada (no encontrado) — %s", carnet, _actor_ip(request, actor))
-        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado") from None
     except db_estudiantes.TieneSesionesRegistradas:
         log.warning("Baja de estudiante %s rechazada (tiene sesiones registradas) — %s", carnet, _actor_ip(request, actor))
-        raise HTTPException(status_code=409, detail="No se puede eliminar: tiene sesiones registradas")
+        raise HTTPException(status_code=409, detail="No se puede eliminar: tiene sesiones registradas") from None
     log.info("Baja de estudiante %s — %s", carnet, _actor_ip(request, actor))

@@ -1,0 +1,27 @@
+# Mantiene al día lo que el AUDITORIA.md original marcaba como pendiente:
+# "python:3.12-slim y mysql:8.4 no están fijadas por digest; considerar
+# pinning o dependabot/renovate". En vez de fijar un digest a mano (que
+# habría que actualizar manualmente en cada rebuild igual), se deja que
+# Dependabot abra un PR cuando salga una imagen/paquete nuevo — eso cubre
+# tanto los tags de Docker Hub como las dependencias de pip.
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/" # docker-compose.yml, docker-compose.prod.yml (imagen de mysql)
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/servidor" # Dockerfile (imagen base de python)
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pip"
+    directory: "/servidor"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

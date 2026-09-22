@@ -26,6 +26,11 @@ const Cuenta = {
         if (nueva !== confirmar) { errEl.textContent = 'La confirmación no coincide con la contraseña nueva.'; return; }
 
         try {
+            // Cambiar la contraseña invalida la cookie de sesión anterior (ver PUT
+            // /auth/password en el servidor); el propio endpoint reescribe las cookies
+            // (access_token/csrf_token) con una sesión nueva, así que acá no hace falta
+            // guardar nada a mano — de lo contrario la siguiente petición del panel
+            // devolvería 401 y forzaría un logout inesperado justo después de guardar.
             await API.cambiarPassword(actual, nueva);
             okEl.classList.remove('hidden');
             document.getElementById('cuenta-pass-actual').value = '';

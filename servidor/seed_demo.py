@@ -12,16 +12,16 @@ from __future__ import annotations
 
 import argparse
 import random
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Iterable
 
 from db.connection import conexion
 from db.schema import init_db
 
-
 SEED = 20260807
-RNG = random.Random(SEED)
+# Genera datos ficticios de demo de forma reproducible; no es un uso criptográfico de random.
+RNG = random.Random(SEED)  # nosec B311
 
 LETRAS_CARNET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -92,7 +92,7 @@ def _generar_carnet() -> str:
 def build_students(count: int) -> list[Student]:
     students: list[Student] = []
     used_carnets: set[str] = set()
-    for index in range(count):
+    for _ in range(count):
         primer_nombre = RNG.choice(NOMBRES)
         apellido = RNG.choice(APELLIDOS)
         segundo_apellido = RNG.choice(APELLIDOS)
@@ -149,8 +149,9 @@ def build_session_rows(students: list[Student], count: int) -> list[dict[str, ob
 
 
 def reset_database(conn) -> None:
+    # table viene de la tupla fija de arriba, nunca de input externo.
     for table in ("estado_pcs", "pcs_hardware", "sesiones", "pcs", "estudiantes"):
-        conn.execute(f"DELETE FROM {table}")
+        conn.execute(f"DELETE FROM {table}")  # nosec B608
     conn.commit()
 
 

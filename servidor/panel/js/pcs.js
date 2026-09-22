@@ -114,7 +114,12 @@ const PCs = {
                 <td data-label="Horas encendida">${horas}</td>
                 <td data-label="Estado">${this._badgeEstado(pc.estado_mantenimiento)}</td>
                 <td data-label="Especificaciones">${this._specsResumen(pc)}</td>
-                <td class="compact-action" data-label="Acciones"><button class="btn-secondary btn-mantenimiento" data-pc="${pcId}" data-nombre="${nombre}">Registrar mantenimiento</button></td>
+                <td data-label="API key">${pc.tiene_api_key ? '<span class="badge-optimo">Configurada</span>' : '<span class="badge-critico">Sin configurar</span>'}</td>
+                <td class="compact-action" data-label="Acciones">
+                    <button class="btn-secondary btn-mantenimiento" data-pc="${pcId}" data-nombre="${nombre}">Registrar mantenimiento</button>
+                    <button class="btn-secondary btn-generar-apikey" data-pc="${pcId}" data-nombre="${nombre}">${pc.tiene_api_key ? 'Rotar API key' : 'Generar API key'}</button>
+                    ${pc.tiene_api_key ? `<button class="btn-secondary btn-revocar-apikey" data-pc="${pcId}" data-nombre="${nombre}">Revocar API key</button>` : ''}
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -125,6 +130,69 @@ const PCs = {
         tbody.querySelectorAll('.btn-mantenimiento').forEach(btn =>
             btn.addEventListener('click', () => this._registrarMantenimiento(btn.dataset.pc, btn.dataset.nombre))
         );
+        tbody.querySelectorAll('.btn-generar-apikey').forEach(btn =>
+            btn.addEventListener('click', () => this._generarApiKey(btn.dataset.pc, btn.dataset.nombre))
+        );
+        tbody.querySelectorAll('.btn-revocar-apikey').forEach(btn =>
+            btn.addEventListener('click', () => this._revocarApiKey(btn.dataset.pc, btn.dataset.nombre))
+        );
+    },
+
+    async _generarApiKey(pcId, nombre) {
+        const etiqueta = nombre || pcId;
+        if (!confirm(`¿Generar una API key nueva para ${etiqueta}? Si ya tenía una, queda invalidada de inmediato.`)) return;
+        try {
+            const data = await API.fetchRaw(`/pcs/${pcId}/api-key`, { method: 'POST' });
+            this._mostrarApiKey(etiqueta, data.api_key);
+            this.cargar();
+        } catch (e) { alert(e.message); }
+    },
+
+    async _revocarApiKey(pcId, nombre) {
+        if (!confirm(`¿Revocar la API key de ${nombre || pcId}? La PC no podrá sincronizar hasta que se le genere una nueva.`)) return;
+        try {
+            await API.fetchRaw(`/pcs/${pcId}/api-key`, { method: 'DELETE' });
+            this.cargar();
+        } catch (e) { alert(e.message); }
+    },
+
+    _mostrarApiKey(nombrePc, apiKey) {
+        document.getElementById('apikey-pc-nombre').textContent = nombrePc;
+        document.getElementById('apikey-valor').value = apiKey;
+        document.getElementById('modal-apikey-error').textContent = '';
+        document.getElementById('modal-apikey-ok').classList.add('hidden');
+        document.getElementById('modal-pc-apikey').classList.remove('hidden');
+    },
+
+    _cerrarModalApiKey() {
+        document.getElementById('apikey-valor').value = '';
+        document.getElementById('modal-pc-apikey').classList.add('hidden');
+    },
+
+    async _copiarApiKey() {
+        const input = document.getElementById('apikey-valor');
+        const errEl = document.getElementById('modal-apikey-error');
+        const okEl = document.getElementById('modal-apikey-ok');
+        try {
+            await navigator.clipboard.writeText(input.value);
+            okEl.classList.remove('hidden');
+            errEl.textContent = '';
+        } catch (e) {
+            input.select();
+            errEl.textContent = 'No se pudo copiar automáticamente, seleccioná el texto y copialo manualmente.';
+        }
+    },
+
+    async _generarApiKeyNuevaPc() {
+        const input = document.getElementById('nueva-pc-id');
+        const pcId = input.value.trim();
+        if (!pcId) { alert('Escribí el PC_ID que muestra setup.py en la PC nueva.'); return; }
+        try {
+            const data = await API.fetchRaw(`/pcs/${encodeURIComponent(pcId)}/api-key`, { method: 'POST' });
+            this._mostrarApiKey(pcId, data.api_key);
+            input.value = '';
+            this.cargar();
+        } catch (e) { alert(e.message); }
     },
 
     _toggleTableRow(btn) {
@@ -143,7 +211,19 @@ const PCs = {
     },
 
     init() {
+        // El modal de API key vive en index.html (fuera de #tab-container), a diferencia
+        // del resto de esta vista que se recarga cada vez que se vuelve a la pestaña "PCs"
+        // — sin esta guarda, cada visita a la pestaña duplicaría sus listeners.
+        if (!this._modalInicializado) {
+            document.getElementById('btn-apikey-copiar')?.addEventListener('click', () => this._copiarApiKey());
+            document.getElementById('btn-apikey-cerrar')?.addEventListener('click', () => this._cerrarModalApiKey());
+            document.getElementById('modal-pc-apikey')?.addEventListener('click', e => {
+                if (e.target.id === 'modal-pc-apikey') this._cerrarModalApiKey();
+            });
+            this._modalInicializado = true;
+        }
         document.getElementById('btn-refresh-pcs')?.addEventListener('click', () => this.cargar());
+        document.getElementById('btn-nueva-pc-apikey')?.addEventListener('click', () => this._generarApiKeyNuevaPc());
         this.cargar();
     }
 };

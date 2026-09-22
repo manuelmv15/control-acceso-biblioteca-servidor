@@ -2,5 +2,5 @@ fastapi==0.141.1
 uvicorn[standard]==0.52.0
 pydantic==2.13.4
 PyJWT==2.13.0
-python-multipart==0.0.32
 PyMySQL==1.2.0
+prometheus-client==0.26.0

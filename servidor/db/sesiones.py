@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from .connection import conexion
+
 from . import pcs as db_pcs
+from .connection import conexion
 from .estudiantes import upsert_desde_sesion
 
 log = logging.getLogger("uvicorn.error")

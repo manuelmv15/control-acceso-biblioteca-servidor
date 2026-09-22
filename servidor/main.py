@@ -1,14 +1,26 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
 from db import init_db
-from routers import auth, sync, estudiantes, reportes, estado, pcs, hardware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from observabilidad import MetricsMiddleware, metrics_payload
+from routers import auth, estado, estudiantes, hardware, pcs, reportes, sync
+from starlette.middleware.base import BaseHTTPMiddleware
 
-app = FastAPI(title="Biblioteca Control", version="1.0.0")
+ENABLE_API_DOCS = os.environ.get("ENABLE_API_DOCS", "").strip().lower() in ("1", "true", "yes")
+# GET /metrics (Prometheus) -- apagado por defecto, igual que ENABLE_API_DOCS:
+# no hay motivo para exponer tráfico/latencias del servicio a quien no lo pidió.
+ENABLE_METRICS = os.environ.get("ENABLE_METRICS", "").strip().lower() in ("1", "true", "yes")
+
+app = FastAPI(
+    title="Biblioteca Control",
+    version="1.0.0",
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
+)
 
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 MAX_BODY_SIZE_BYTES = int(os.environ.get("MAX_BODY_SIZE_BYTES") or 5_000_000)
@@ -38,15 +50,15 @@ class LimitBodySizeMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Cabeceras de defensa en profundidad para el panel admin (H8).
+    """Cabeceras de defensa en profundidad para el panel admin.
 
     El panel solo carga scripts propios (`/panel/js/*.js`, mismo origen) más
-    Chart.js desde `cdn.jsdelivr.net` con SRI (H6) — de ahí el `script-src`
+    Chart.js desde `cdn.jsdelivr.net` con SRI — de ahí el `script-src`
     acotado a esos dos orígenes. No hay estilos ni scripts inline en
     `panel/index.html`/`*.js` (todo `element.textContent`/`escapeHtml()`),
     así que no hace falta `'unsafe-inline'` en ningún directiva.
     HSTS solo se envía si el propio proceso tiene TLS habilitado
-    (`TLS_CERT_PATH`/`TLS_KEY_PATH`, ver H1) — anunciarlo sirviendo HTTP
+    (`TLS_CERT_PATH`/`TLS_KEY_PATH`) — anunciarlo sirviendo HTTP
     plano sería una promesa falsa al navegador.
     """
 
@@ -60,6 +72,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "form-action 'self'; "
         "frame-ancestors 'none'"
     )
+    # El panel no usa cámara/micrófono/geolocalización/etc. — se deshabilitan
+    # todas para que un script inyectado (compromiso del CDN de Chart.js,
+    # por ejemplo) no pueda ni intentar pedir acceso a ninguna.
+    _PERMISSIONS_POLICY = (
+        "camera=(), microphone=(), geolocation=(), usb=(), payment=(), "
+        "accelerometer=(), gyroscope=(), magnetometer=()"
+    )
     _TLS_ACTIVO = bool(os.environ.get("TLS_CERT_PATH")) and bool(os.environ.get("TLS_KEY_PATH"))
 
     async def dispatch(self, request, call_next):
@@ -68,6 +87,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = self._CSP
+        response.headers["Permissions-Policy"] = self._PERMISSIONS_POLICY
         if self._TLS_ACTIVO:
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
@@ -83,6 +103,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if ENABLE_METRICS:
+    # Agregada al final (= la más externa del stack, ver orden de
+    # add_middleware de Starlette) para medir el tiempo de request completo,
+    # CORS/LimitBodySize/SecurityHeaders incluidos.
+    app.add_middleware(MetricsMiddleware)
+
+    @app.get("/metrics")
+    def metrics():
+        cuerpo, content_type = metrics_payload()
+        return Response(cuerpo, media_type=content_type)
 
 app.include_router(auth.router)
 app.include_router(sync.router)

@@ -1,10 +1,13 @@
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
+
+from .tipos import PC_ID_PATTERN, SexoValido
 
 
 class Sesion(BaseModel):
     id: str = Field(max_length=100)
-    pc_id: str = Field(max_length=100)
+    pc_id: str = Field(max_length=100, pattern=PC_ID_PATTERN)
     carnet: Optional[str] = Field(default=None, max_length=30, pattern=r"^[A-Z]{2}\d{5}$")
     hora_inicio: str = Field(max_length=32)
     hora_fin: Optional[str] = Field(default=None, max_length=32)
@@ -14,5 +17,5 @@ class Sesion(BaseModel):
     nombre: Optional[str] = Field(default=None, max_length=255)
     carrera: Optional[str] = Field(default=None, max_length=255)
     facultad: Optional[str] = Field(default=None, max_length=255)
-    sexo: Optional[str] = Field(default=None, max_length=20)
+    sexo: Optional[SexoValido] = None
     fecha_nacimiento: Optional[str] = Field(default=None, max_length=10)

@@ -1,11 +1,9 @@
-name: Auditoría de dependencias
+name: Auditoría de dependencias y calidad de código
 
-# H11 (AUDITORIA.md): el repo no tenía ningún pipeline de CI. Esto NO agrega
-# tests (siguen sin existir, ver AUDITORIA.md sección H11) — corre pip-audit
-# en cada push/PR y una vez por semana para no depender de que alguien lo
-# ejecute a mano (como en la auditoría de 2026-09, donde encontró H9/ecdsa),
-# y un chequeo de sintaxis barato (py_compile) como red mínima mientras no
-# haya una suite de tests real.
+# Corre pip-audit en cada push/PR y una vez por semana para no depender de
+# que alguien lo ejecute a mano, un chequeo de sintaxis barato (py_compile)
+# como red mínima, la suite de tests de servidor/tests/ (pytest), linting
+# (ruff, configurado en pyproject.toml) y SAST (bandit).
 
 on:
   push:
@@ -37,3 +35,41 @@ jobs:
           python-version: "3.12"
       - name: Compilar todos los .py (detecta errores de sintaxis)
         run: python -m py_compile $(find . -name "*.py" -not -path "./.git/*")
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias (incluye pytest)
+        run: pip install -r servidor/requirements-dev.txt
+      - name: Correr tests
+        run: pytest servidor/tests
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar ruff
+        run: pip install ruff==0.16.7
+      - name: Lint (reglas y excepciones en pyproject.toml)
+        run: ruff check servidor
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar bandit
+        run: pip install bandit==1.9.4
+      # -c pyproject.toml: bandit no autodetecta [tool.bandit] como ruff con
+      # su propia sección, hay que pasarle el archivo explícitamente.
+      - name: SAST (excepciones documentadas y justificadas en pyproject.toml)
+        run: bandit -r servidor -x servidor/tests -c pyproject.toml

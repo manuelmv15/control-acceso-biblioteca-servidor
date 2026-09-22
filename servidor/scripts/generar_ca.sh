@@ -5,11 +5,13 @@ set -euo pipefail
 # para cifrar el tráfico entre los kioscos (biblioteca_cliente) y este
 # servidor dentro de la LAN del laboratorio. No hay dominio público, solo
 # una IP interna, así que no aplica una CA pública tipo Let's Encrypt — ver
-# docs/desarrollo/despliegue.md, sección TLS (hallazgo H1 del informe de
-# auditoría de seguridad).
+# docs/desarrollo/despliegue.md, sección TLS.
 #
 # Se corre UNA VEZ en la PC maestra (o en cualquier máquina con openssl, y
-# luego copiás los archivos a la PC maestra).
+# luego copiás los archivos a la PC maestra) — para renovar el certificado
+# de servidor cuando esté por vencer, sin tocar la CA ni los kioscos ya
+# configurados, ver ./renovar_cert_servidor.sh en su lugar. Para chequear
+# cuánto falta para que venza, ver ./verificar_vencimiento_cert.sh.
 #
 # Uso:
 #   ./scripts/generar_ca.sh <IP-o-hostname-del-servidor> [directorio-salida]
@@ -55,9 +57,12 @@ OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 
 if [[ -f "$OUT_DIR/ca.key" || -f "$OUT_DIR/ca.pem" ]]; then
     echo "Ya existe una CA en $OUT_DIR (ca.key/ca.pem)." >&2
-    echo "Borrala a mano si querés regenerarla — ojo: regenerarla invalida el" >&2
-    echo "certificado de todos los kioscos ya configurados con el ca.pem viejo," >&2
-    echo "hay que volver a copiarles el nuevo." >&2
+    echo "¿Buscás renovar el certificado de servidor (por vencer)? Usá en cambio:" >&2
+    echo "  ./scripts/renovar_cert_servidor.sh <host> -- reusa esta misma CA, sin" >&2
+    echo "  tocar los kioscos ya configurados." >&2
+    echo "Si en cambio de verdad querés una CA nueva, borrá ca.key/ca.pem a mano —" >&2
+    echo "ojo: invalida el certificado de todos los kioscos ya configurados con el" >&2
+    echo "ca.pem viejo, hay que volver a copiarles el nuevo." >&2
     exit 1
 fi
 
@@ -65,8 +70,15 @@ cd "$OUT_DIR"
 
 echo "=== Generando CA interna en $OUT_DIR ==="
 openssl genrsa -out ca.key 4096
+# -addext keyUsage: sin esta extensión, OpenSSL 3.2+ (validación estricta de
+# cadena, ver X509_V_FLAG_X509_STRICT) rechaza este CA para verificar el
+# certificado del servidor con "CA cert does not include key usage
+# extension" — falla silenciosa en el cliente porque hay_conexion() traga
+# cualquier excepción y la reporta solo como "sin conexión".
 openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
-    -out ca.pem -subj "/CN=Biblioteca UES CA"
+    -out ca.pem -subj "/CN=Biblioteca UES CA" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -addext "basicConstraints=critical,CA:true"
 
 echo ""
 echo "=== Generando certificado del servidor para '$HOST' ==="
@@ -104,6 +116,7 @@ echo ""
 echo "IMPORTANTE:"
 echo "  - ca.key es la clave privada de la CA: no la distribuyas, no la subas a git,"
 echo "    guardala offline. Sin ella no podés firmar un futuro certificado de servidor."
-echo "  - server.pem vence en ~825 días (2.25 años) — calendarizá su renovación"
-echo "    (volvé a correr este script, o solo la parte de 'certificado del servidor'"
-echo "    reusando la misma CA)."
+echo "  - server.pem vence en ~825 días (2.25 años) — calendarizá su renovación con"
+echo "    ./scripts/renovar_cert_servidor.sh (reusa esta misma CA, no hace falta"
+echo "    redistribuir nada a los kioscos). ./scripts/verificar_vencimiento_cert.sh"
+echo "    avisa cuando falten menos de 60 días — agregalo a cron."

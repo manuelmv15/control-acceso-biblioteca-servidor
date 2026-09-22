@@ -14,7 +14,7 @@ const App = {
         );
         Cuenta.init();
 
-        if (API.loadToken()) {
+        if (await API.checkSession()) {
             await this.mostrarPanel();
         } else {
             document.getElementById('login-screen').classList.remove('hidden');
@@ -27,8 +27,7 @@ const App = {
         const err  = document.getElementById('login-error');
         err.textContent = '';
         try {
-            const data = await API.login(user, pass);
-            API.setToken(data.access_token);
+            await API.login(user, pass);
             await this.mostrarPanel();
         } catch (e) {
             err.textContent = e.message;
@@ -36,7 +35,7 @@ const App = {
     },
 
     logout() {
-        API.clearToken();
+        API.logout();
         clearInterval(this.refreshInterval);
         document.getElementById('panel-screen').classList.add('hidden');
         document.getElementById('login-screen').classList.remove('hidden');

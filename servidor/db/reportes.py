@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+
 from .connection import conexion
 
 
@@ -36,6 +37,10 @@ def listar_sesiones(fecha=None, pc_id=None, carnet=None, carrera=None, limit=500
     all_params = params_s + params_e + [limit, offset]
 
     with conexion() as conn:
+        # where_sql/where_estado_sql se arman arriba a partir de una lista fija de
+        # comparaciones hardcodeadas (nunca de texto libre): los valores de
+        # pc_id/carnet/carrera siempre viajan parametrizados en all_params, nunca
+        # interpolados en el string.
         rows = conn.execute(f"""
             SELECT s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha,
                    e.nombre, e.carrera, e.facultad,

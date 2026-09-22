@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from datetime import datetime
 
 from .connection import conexion
 
@@ -8,7 +9,7 @@ log = logging.getLogger("uvicorn.error")
 
 _HASH_RE = re.compile(r"^pbkdf2_sha256\$\d+\$[0-9a-f]+\$[0-9a-f]+$")
 
-# H12 (AUDITORIA.md): el ADMIN_PASS_HASH de .env.example es un hash real y
+# El ADMIN_PASS_HASH de .env.example es un hash real y
 # válido de la contraseña "cambiar-esta-contrasena", publicado en un repo
 # público de GitHub. El README y el propio .env.example piden cambiarla
 # apenas se entra al panel, pero eso depende de que el operador se acuerde
@@ -56,7 +57,9 @@ def init_db():
                 nombre VARCHAR(255),
                 ultima_conexion DATETIME,
                 ip_reportada VARCHAR(45),
-                ultimo_mantenimiento DATETIME
+                ultimo_mantenimiento DATETIME,
+                api_key_hash VARCHAR(255),
+                api_key_generada DATETIME
             ) ENGINE=InnoDB;
 
             CREATE TABLE IF NOT EXISTS sesiones (
@@ -114,6 +117,10 @@ def init_db():
         # migraciones formal; los cambios de esquema se aplican aquí).
         if not _tiene_columna(conn, "pcs", "ultimo_mantenimiento"):
             conn.execute("ALTER TABLE pcs ADD COLUMN ultimo_mantenimiento DATETIME NULL")
+        if not _tiene_columna(conn, "pcs", "api_key_hash"):
+            conn.execute("ALTER TABLE pcs ADD COLUMN api_key_hash VARCHAR(255) NULL")
+        if not _tiene_columna(conn, "pcs", "api_key_generada"):
+            conn.execute("ALTER TABLE pcs ADD COLUMN api_key_generada DATETIME NULL")
         conn.execute("ALTER TABLE sesiones MODIFY COLUMN carnet VARCHAR(30) NULL")
         if _tiene_columna(conn, "estudiantes", "departamento"):
             conn.execute("ALTER TABLE estudiantes DROP COLUMN departamento")
@@ -174,8 +181,8 @@ def _sembrar_admin_inicial(conn):
         return
 
     conn.execute(
-        "INSERT INTO admins (username, password_hash, actualizado) VALUES (%s, %s, NOW())",
-        (username, password_hash),
+        "INSERT INTO admins (username, password_hash, actualizado) VALUES (%s, %s, %s)",
+        (username, password_hash, datetime.utcnow()),
     )
     conn.commit()
     log.info("Administrador inicial '%s' creado a partir de ADMIN_USER/ADMIN_PASS_HASH.", username)

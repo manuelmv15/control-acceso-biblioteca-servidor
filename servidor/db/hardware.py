@@ -1,6 +1,8 @@
-from .connection import conexion
 from . import pcs as db_pcs
-from .umbrales import calcular_estado
+from .connection import conexion
+from .umbrales import (
+    calcular_estado,  # noqa: F401 -- re-exportado: routers/hardware.py lo usa como db_hardware.calcular_estado
+)
 
 
 def upsert_lectura(pc_id, payload):

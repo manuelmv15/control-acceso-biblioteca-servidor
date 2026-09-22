@@ -4,11 +4,32 @@ from contextlib import contextmanager
 import pymysql
 import pymysql.cursors
 
+
+def _require_env(name: str) -> str:
+    """Mismo criterio que `routers/auth.py` para `SECRET_KEY`: si falta la variable, el proceso
+    debe fallar de forma ruidosa al arrancar en vez de conectar con una credencial adivinable."""
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(
+            f"La variable de entorno {name} es obligatoria y no puede estar vacía. "
+            f"Configúrala en tu .env antes de iniciar el servidor."
+        )
+    return value
+
+
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = int(os.environ.get("DB_PORT", "3306"))
-DB_USER = os.environ.get("DB_USER", "biblioteca")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "biblioteca")
+DB_USER = _require_env("DB_USER")
+DB_PASSWORD = _require_env("DB_PASSWORD")
 DB_NAME = os.environ.get("DB_NAME", "biblioteca")
+
+# Ruta (dentro del contenedor) a un certificado CA para cifrar la conexión a
+# MySQL. Vacío = conexión en texto plano, sin impacto mientras "db" y
+# "servidor" compartan la red interna de Docker (caso por defecto de este
+# repo). Solo hace falta fijarla si la base de datos se aloja fuera de esa
+# red (managed DB en la nube, otra máquina): apuntarla al CA cert que dé el
+# proveedor de la base de datos.
+DB_SSL_CA = os.environ.get("DB_SSL_CA") or None
 
 
 class ConnectionWrapper:
@@ -40,6 +61,7 @@ class ConnectionWrapper:
 
 
 def get_connection():
+    ssl_args = {"ssl_ca": DB_SSL_CA, "ssl_verify_cert": True} if DB_SSL_CA else {}
     conn = pymysql.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -48,6 +70,7 @@ def get_connection():
         database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
+        **ssl_args,
     )
     return ConnectionWrapper(conn)
 

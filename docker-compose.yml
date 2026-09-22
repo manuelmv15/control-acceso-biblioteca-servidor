@@ -2,8 +2,9 @@
 #
 # Monta ./servidor como volumen y corre uvicorn con --reload, así que los
 # cambios en el código se reflejan sin reconstruir la imagen. Publica además
-# el puerto 3306 de MySQL al host para poder conectarte directo (MySQL
-# Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo local.
+# el puerto 3306 de MySQL en 127.0.0.1 del host para poder conectarte directo
+# (MySQL Workbench, `mysql` CLI, backups manuales, etc.) durante desarrollo
+# local, sin exponerlo al resto de la red (bind solo a loopback).
 #
 # Para producción usa el archivo standalone docker-compose.prod.yml (no se
 # combina con este vía -f, es autosuficiente):
@@ -15,6 +16,12 @@
 # "db.<search-domain>" contra el DNS de Tailscale antes que el nombre "db"
 # simple, y esa consulta externa cuelga/falla, provocando
 # "Temporary failure in name resolution" y un crash-loop al conectar a MySQL.
+#
+# deploy.resources.limits en ambos servicios acota CPU/memoria por contenedor
+# (soportado por `docker compose up` sin Swarm en Compose v2) para que un pico
+# de tráfico, una fuga de memoria o un contenedor con problemas no agote los
+# recursos del host. Ajustado al tamaño esperado del despliegue (16 kioscos,
+# tráfico bajo); subir si el uso real se acerca al límite.
 
 services:
   db:
@@ -27,7 +34,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: America/El_Salvador
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -37,6 +44,11 @@ services:
       retries: 10
     dns_search:
       - .
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
 
   servidor:
     build: ./servidor
@@ -62,11 +74,18 @@ services:
       LOGIN_BLOQUEO_MINUTOS: ${LOGIN_BLOQUEO_MINUTOS}
       MAX_BODY_SIZE_BYTES: ${MAX_BODY_SIZE_BYTES}
       SYNC_MAX_SESIONES: ${SYNC_MAX_SESIONES}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS}
+      ENABLE_METRICS: ${ENABLE_METRICS}
       TZ: America/El_Salvador
     volumes:
       - ./servidor:/app
     dns_search:
       - .
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
 volumes:
   db_data:
