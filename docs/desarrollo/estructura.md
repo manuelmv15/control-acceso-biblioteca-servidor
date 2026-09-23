@@ -72,7 +72,7 @@ No hay sistema formal de migraciones (Alembic, etc.): los cambios de esquema son
 | `POST` | `/estudiantes` | 🔒 kiosko o admin | Registra estudiante (201, 409 si ya existe) |
 | `GET` | `/estudiantes` | 🔒 solo admin | Lista completa |
 | `GET` | `/estudiantes/{carnet}` | 🔒 kiosko o admin | 404 si no existe |
-| `PUT` | `/estudiantes/{carnet}` | 🔒 kiosko o admin | Actualiza campos |
+| `PUT` | `/estudiantes/{carnet}` | 🔒 kiosko o admin | Actualiza campos. Un kiosko solo edita al estudiante con sesión activa en su PC (403 si no) |
 | `DELETE` | `/estudiantes/{carnet}` | 🔒 solo admin | 204, 409 si tiene sesiones (FK) |
 | `GET` | `/pcs` | 🔒 | Lista de mantenimiento consolidada (incluye `tiene_api_key` por PC) |
 | `POST` | `/pcs/{pc_id}/mantenimiento` | 🔒 | Marca `ultimo_mantenimiento = now()` |

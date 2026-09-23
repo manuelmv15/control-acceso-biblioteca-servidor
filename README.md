@@ -80,7 +80,7 @@ Auth mixta: el kiosko necesita leer/crear/actualizar por carnet (login, auto-reg
 - `POST /estudiantes` (201) 🔒 kiosko o admin → `{carnet}`. 409 si el carnet ya existe.
 - `GET /estudiantes` 🔒 solo admin → lista completa, ordenada por nombre (NULLs al final).
 - `GET /estudiantes/{carnet}` 🔒 kiosko o admin → 404 si no existe.
-- `PUT /estudiantes/{carnet}` 🔒 kiosko o admin → actualiza campos, 404 si no existe.
+- `PUT /estudiantes/{carnet}` 🔒 kiosko o admin → actualiza campos, 404 si no existe. Un kiosko solo puede editar al estudiante con sesión activa en su PC (según su último `POST /estado`); si no, 403.
 - `DELETE /estudiantes/{carnet}` (204) 🔒 solo admin → 404 si no existe, 409 si tiene sesiones registradas (FK).
 
 ### `/pcs`

@@ -18,6 +18,7 @@ import main
 import pytest
 from db import admins as db_admins
 from db import estado as db_estado
+from db import estudiantes as db_estudiantes
 from db import hardware as db_hardware
 from db import pcs as db_pcs
 from db import sesiones as db_sesiones
@@ -292,6 +293,63 @@ def test_estado_con_api_key_propia_funciona(client, monkeypatch):
 
 def test_estado_get_requiere_admin(client):
     assert client.get("/estado").status_code == 401
+
+
+# --- PUT /estudiantes/{carnet}: un kiosko solo edita al de su sesión activa
+
+ESTUDIANTE_EDITADO = {"carnet": "AB00001", "nombre": "Nombre Nuevo"}
+
+
+@pytest.fixture
+def sesion_activa_en_pc01(monkeypatch):
+    """PC-01 con key propia y el carnet AB00001 con sesión abierta en ella.
+    Guarda en `actualizados` los carnets que llegaron a escribirse."""
+    monkeypatch.setattr(auth_module.db_pcs, "obtener_api_key_hash", lambda pc_id: auth_module.hash_api_key("clave-pc01"))
+    monkeypatch.setattr(
+        db_estado, "carnet_activo_en_pc", lambda pc_id, carnet: (pc_id, carnet) == ("PC-01", "AB00001"),
+    )
+    actualizados = []
+    monkeypatch.setattr(db_estudiantes, "actualizar", lambda carnet, est: actualizados.append(carnet))
+    return actualizados
+
+
+def test_put_estudiante_desde_kiosko_con_sesion_activa_funciona(client, sesion_activa_en_pc01):
+    r = client.put(
+        "/estudiantes/AB00001", json=ESTUDIANTE_EDITADO,
+        headers={"X-Kiosk-Key": "clave-pc01", "X-PC-Id": "PC-01"},
+    )
+    assert r.status_code == 200
+    assert sesion_activa_en_pc01 == ["AB00001"]
+
+
+def test_put_estudiante_desde_kiosko_sin_sesion_activa_da_403(client, sesion_activa_en_pc01):
+    r = client.put(
+        "/estudiantes/AB00002", json={**ESTUDIANTE_EDITADO, "carnet": "AB00002"},
+        headers={"X-Kiosk-Key": "clave-pc01", "X-PC-Id": "PC-01"},
+    )
+    assert r.status_code == 403
+    assert sesion_activa_en_pc01 == []
+
+
+def test_put_estudiante_con_sesion_activa_en_otra_pc_da_403(client, sesion_activa_en_pc01, monkeypatch):
+    # AB00001 tiene sesión en PC-01, no en PC-02: la key de PC-02 no puede editarlo.
+    monkeypatch.setattr(auth_module.db_pcs, "obtener_api_key_hash", lambda pc_id: auth_module.hash_api_key(f"clave-{pc_id.lower().replace('-', '')}"))
+    r = client.put(
+        "/estudiantes/AB00001", json=ESTUDIANTE_EDITADO,
+        headers={"X-Kiosk-Key": "clave-pc02", "X-PC-Id": "PC-02"},
+    )
+    assert r.status_code == 403
+    assert sesion_activa_en_pc01 == []
+
+
+def test_put_estudiante_como_admin_no_requiere_sesion_activa(client, sesion_activa_en_pc01, admin_sin_revocacion):
+    token = auth_module.create_token({"sub": "admin", "role": "admin", "csrf": "x"})
+    r = client.put(
+        "/estudiantes/AB00002", json={**ESTUDIANTE_EDITADO, "carnet": "AB00002"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert sesion_activa_en_pc01 == ["AB00002"]
 
 
 # --- POST /pcs/{pc_id}/hardware: estado_mantenimiento con calcular_estado

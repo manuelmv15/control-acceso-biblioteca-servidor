@@ -1,5 +1,6 @@
 import logging
 
+from db import estado as db_estado
 from db import estudiantes as db_estudiantes
 from fastapi import APIRouter, Depends, HTTPException, Request
 from models import Estudiante
@@ -49,6 +50,16 @@ def obtener_estudiante(carnet: str):
 def actualizar_estudiante(
     carnet: str, est: Estudiante, request: Request, actor: dict = Depends(limitar_escrituras_kiosko)
 ):
+    # El kiosko identifica al estudiante solo por el carnet, que cualquiera
+    # puede teclear. Para que una API key de PC no sirva para editar fichas
+    # ajenas, un kiosko solo puede editar al estudiante que tiene la sesión
+    # abierta en esa misma PC según su último heartbeat. El admin no se restringe.
+    if actor.get("role") == "kiosk" and not db_estado.carnet_activo_en_pc(actor.get("pc_id"), carnet):
+        log.warning("Actualización de estudiante %s rechazada (sin sesión activa en la PC) — %s", carnet, _actor_ip(request, actor))
+        raise HTTPException(
+            status_code=403,
+            detail="Solo se pueden editar los datos del estudiante con sesión activa en esta PC",
+        )
     try:
         db_estudiantes.actualizar(carnet, est)
     except db_estudiantes.EstudianteNoEncontrado:

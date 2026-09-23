@@ -44,6 +44,17 @@ def actualizar_estado(payload):
         return ahora
 
 
+def carnet_activo_en_pc(pc_id: str, carnet: str) -> bool:
+    """True si `carnet` es el de la sesión abierta en `pc_id` según el último
+    heartbeat de esa PC (POST /estado)."""
+    with conexion() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM estado_pcs WHERE pc_id = %s AND sesion_activa = 1 AND carnet = %s",
+            (pc_id, carnet),
+        ).fetchone()
+        return row is not None
+
+
 def listar_estados():
     with conexion() as conn:
         rows = conn.execute(f"""
