@@ -305,32 +305,37 @@ def require_kiosk_or_admin(
     afectar a los demás y el `sub` del actor identifica a la PC real, no una etiqueta
     genérica.
 
-    Si `X-PC-Id` no trae una key configurada, se compara además contra la
-    `KIOSK_API_KEY` compartida (`.env`) como vía de compatibilidad para equipos que
-    todavía no se migraron a una key propia; si `KIOSK_API_KEY` tampoco está configurada,
-    esa vía queda siempre cerrada (nunca cae a un valor por defecto adivinable)."""
+    Solo si la PC de `X-PC-Id` **no** tiene key propia configurada se compara contra la
+    `KIOSK_API_KEY` compartida (`.env`), como vía de compatibilidad para equipos que
+    todavía no se migraron a una key propia. Una PC que ya tiene key propia solo acepta
+    esa key: si no, la clave compartida seguiría abriendo la PC después de revocar o rotar
+    su key. La vía compartida también exige `X-PC-Id` y devuelve un actor con ese `pc_id`,
+    así `verificar_pc_id` le impide escribir datos de otras PCs y el rate limit se cuenta
+    por PC. Si `KIOSK_API_KEY` no está configurada, esa vía queda siempre cerrada (nunca
+    cae a un valor por defecto adivinable)."""
     if x_kiosk_key and x_pc_id:
         api_key_hash = db_pcs.obtener_api_key_hash(x_pc_id)
-        if api_key_hash and hmac.compare_digest(hash_api_key(x_kiosk_key), api_key_hash):
+        if api_key_hash:
+            if hmac.compare_digest(hash_api_key(x_kiosk_key), api_key_hash):
+                return {"sub": x_pc_id, "role": "kiosk", "pc_id": x_pc_id}
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key inválida para esta PC")
+        if KIOSK_API_KEY and hmac.compare_digest(x_kiosk_key, KIOSK_API_KEY):
+            log.warning(
+                "Kiosko %s autenticado con la API key compartida (sin key propia configurada). "
+                "Generar una key dedicada desde el panel (POST /pcs/{pc_id}/api-key).",
+                x_pc_id,
+            )
             return {"sub": x_pc_id, "role": "kiosk", "pc_id": x_pc_id}
-    if KIOSK_API_KEY and x_kiosk_key and hmac.compare_digest(x_kiosk_key, KIOSK_API_KEY):
-        log.warning(
-            "Kiosko autenticado con la API key compartida (sin key propia configurada "
-            "para la PC) — pc_id enviado: %s. Generar una key dedicada desde el panel "
-            "(POST /pcs/{pc_id}/api-key).",
-            x_pc_id or "(no enviado)",
-        )
-        return {"sub": "kiosko", "role": "kiosk"}
     if credentials is not None or "access_token" in request.cookies:
         return _autenticar_admin(request, credentials)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se requiere JWT de admin o API key de kiosko")
 
 
 def verificar_pc_id(actor: dict, pc_id: str) -> None:
-    """Si el actor se autenticó con la API key propia de una PC (no con la
-    KIOSK_API_KEY compartida de compatibilidad, ni con un JWT de admin),
-    solo puede escribir datos para esa misma PC. Sin esto, cualquier PC
-    puede suplantar el estado/sesiones/hardware de cualquier otra."""
+    """Si el actor es un kiosko (con su API key propia o con la KIOSK_API_KEY
+    compartida, que también queda atada al `X-PC-Id`), solo puede escribir
+    datos para esa misma PC. Sin esto, cualquier PC puede suplantar el
+    estado/sesiones/hardware de cualquier otra. Un JWT de admin no se restringe."""
     if actor.get("role") == "kiosk" and actor.get("pc_id") and actor["pc_id"] != pc_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -351,8 +356,8 @@ def _purgar_lecturas_expiradas() -> None:
 def limitar_lecturas_estudiante(request: Request, actor: dict = Depends(require_kiosk_or_admin)) -> dict:
     """Dependencia FastAPI: exige JWT de admin o `X-Kiosk-Key` (igual que `require_kiosk_or_admin`)
     y además limita cuántas veces por minuto se puede consultar `GET /estudiantes/{carnet}` con la
-    key de kiosko. Se limita por la credencial (`actor["sub"]`: el `pc_id` para una key propia por
-    PC, o el literal "kiosko" para la `KIOSK_API_KEY` compartida) y no por IP — así una key filtrada
+    key de kiosko. Se limita por la credencial (`actor["sub"]`: el `pc_id`, tanto con key propia
+    como con la `KIOSK_API_KEY` compartida) y no por IP — así una key filtrada
     reproducida desde varias IPs (proxies, redes distintas) no evade el límite repartiendo las
     consultas entre orígenes; solo si no hay actor identificable se cae a la IP como respaldo. Sin
     este límite, cualquiera con la key podría barrer el espacio de carnets y extraer los datos de

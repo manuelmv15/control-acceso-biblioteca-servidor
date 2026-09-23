@@ -1,4 +1,4 @@
-"""Tests de `verificar_pc_id` (A1: una PC solo puede reportar sus propios
+"""Tests de `verificar_pc_id` (una PC solo puede reportar sus propios
 datos de estado/sesiones/hardware) y de las vías de `require_kiosk_or_admin`
 que determinan qué `actor` recibe — en particular si trae o no un "pc_id"
 propio, que es justo lo que `verificar_pc_id` mira. No se levanta base de
@@ -37,12 +37,17 @@ def test_verificar_pc_id_no_restringe_a_un_admin():
     auth.verificar_pc_id(actor, "PC-cualquiera")  # no debe lanzar, no es kiosko
 
 
-def test_verificar_pc_id_no_restringe_a_la_key_compartida_sin_pc_propia():
-    # Un actor autenticado con KIOSK_API_KEY (compatibilidad) no tiene un
-    # "pc_id" propio asignado por require_kiosk_or_admin (ver más abajo), así
-    # que no hay nada contra qué comparar y no debe bloquearse.
-    actor = {"role": "kiosk", "sub": "kiosko"}
-    auth.verificar_pc_id(actor, "PC-cualquiera")  # no debe lanzar
+def test_verificar_pc_id_restringe_tambien_a_la_key_compartida(monkeypatch):
+    # La KIOSK_API_KEY compartida queda atada al X-PC-Id que se envió, así que
+    # tampoco puede escribir datos de otra PC.
+    monkeypatch.setattr(auth.db_pcs, "obtener_api_key_hash", lambda pc_id: None)
+    monkeypatch.setattr(auth, "KIOSK_API_KEY", "compartida-legacy")
+    actor = auth.require_kiosk_or_admin(
+        make_request(), credentials=None, x_kiosk_key="compartida-legacy", x_pc_id="PC-02",
+    )
+    with pytest.raises(HTTPException) as exc:
+        auth.verificar_pc_id(actor, "PC-01")
+    assert exc.value.status_code == 403
 
 
 # --- require_kiosk_or_admin: qué actor produce cada vía de autenticación --
@@ -63,14 +68,30 @@ def test_require_kiosk_or_admin_rechaza_api_key_de_pc_incorrecta(monkeypatch):
     assert exc.value.status_code == 401
 
 
-def test_require_kiosk_or_admin_con_key_compartida_no_da_pc_id_propio(monkeypatch):
+def test_require_kiosk_or_admin_con_key_compartida_conserva_pc_id(monkeypatch):
     monkeypatch.setattr(auth.db_pcs, "obtener_api_key_hash", lambda pc_id: None)  # PC sin key propia
     monkeypatch.setattr(auth, "KIOSK_API_KEY", "compartida-legacy")
     actor = auth.require_kiosk_or_admin(
         make_request(), credentials=None, x_kiosk_key="compartida-legacy", x_pc_id="PC-02",
     )
-    assert actor == {"sub": "kiosko", "role": "kiosk"}
-    assert "pc_id" not in actor  # por eso verificar_pc_id no la restringe (ver arriba)
+    assert actor == {"sub": "PC-02", "role": "kiosk", "pc_id": "PC-02"}
+
+
+def test_require_kiosk_or_admin_rechaza_key_compartida_si_la_pc_tiene_key_propia(monkeypatch):
+    # Si no, revocar o rotar la key de una PC no le cortaría el acceso a quien
+    # tenga la clave compartida.
+    monkeypatch.setattr(auth.db_pcs, "obtener_api_key_hash", lambda pc_id: auth.hash_api_key("secreta-de-pc01"))
+    monkeypatch.setattr(auth, "KIOSK_API_KEY", "compartida-legacy")
+    with pytest.raises(HTTPException) as exc:
+        auth.require_kiosk_or_admin(make_request(), credentials=None, x_kiosk_key="compartida-legacy", x_pc_id="PC-01")
+    assert exc.value.status_code == 401
+
+
+def test_require_kiosk_or_admin_rechaza_key_compartida_sin_pc_id(monkeypatch):
+    monkeypatch.setattr(auth, "KIOSK_API_KEY", "compartida-legacy")
+    with pytest.raises(HTTPException) as exc:
+        auth.require_kiosk_or_admin(make_request(), credentials=None, x_kiosk_key="compartida-legacy", x_pc_id=None)
+    assert exc.value.status_code == 401
 
 
 def test_require_kiosk_or_admin_acepta_jwt_de_admin(monkeypatch):
