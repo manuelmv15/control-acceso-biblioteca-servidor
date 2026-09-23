@@ -202,6 +202,70 @@ def test_sync_con_sesion_de_otra_pc_da_422(client, monkeypatch):
     assert r.status_code == 422
 
 
+def test_sync_cobra_cada_estudiante_creado_en_el_rate_limit(client, monkeypatch):
+    # Un solo /sync puede dar de alta muchos estudiantes: cada alta tiene que
+    # contar contra KIOSKO_MAX_ESCRITURAS_MIN, no solo el request.
+    monkeypatch.setattr(auth_module.db_pcs, "obtener_api_key_hash", lambda pc_id: auth_module.hash_api_key("clave-pc01"))
+    monkeypatch.setattr(
+        db_sesiones, "registrar_sync",
+        lambda payload, ip: {"insertados": 0, "estudiantes_creados": auth_module.KIOSKO_MAX_ESCRITURAS_MIN},
+    )
+    headers = {"X-Kiosk-Key": "clave-pc01", "X-PC-Id": "PC-01"}
+    r = client.post("/sync", json={"pc_id": "PC-01", "sesiones": []}, headers=headers)
+    assert r.status_code == 200
+    r = client.post("/sync", json={"pc_id": "PC-01", "sesiones": []}, headers=headers)
+    assert r.status_code == 429
+
+
+class _CursorFalso:
+    """Cursor de pymysql mínimo: guarda el SQL ejecutado y simula que el
+    carnet "AB00001" ya existe (rowcount 0 en el alta) y el resto no."""
+
+    def __init__(self):
+        self.sql = []
+        self.rowcount = 0
+
+    def execute(self, sql, params=None):
+        self.sql.append(sql)
+        self.rowcount = 0 if params and params[0] == "AB00001" else 1
+
+
+class _ConexionFalsa:
+    def __init__(self):
+        self.cur = _CursorFalso()
+
+    def cursor(self):
+        return self.cur
+
+    def commit(self):
+        pass
+
+
+def test_registrar_sync_no_sobrescribe_estudiantes_existentes(monkeypatch):
+    import contextlib
+
+    from models import SyncPayload
+
+    conn = _ConexionFalsa()
+    monkeypatch.setattr(db_sesiones, "conexion", lambda: contextlib.nullcontext(conn))
+    monkeypatch.setattr(db_sesiones.db_pcs, "upsert_conexion", lambda *a: None)
+    payload = SyncPayload(pc_id="PC-01", sesiones=[
+        {"id": f"s-{carnet}", "pc_id": "PC-01", "carnet": carnet, "nombre": "X",
+         "hora_inicio": "2026-01-01T10:00:00", "fecha": "2026-01-01"}
+        for carnet in ("AB00001", "AB00002")
+    ])
+
+    resultado = db_sesiones.registrar_sync(payload, "203.0.113.10")
+
+    altas = [sql for sql in conn.cur.sql if "INTO estudiantes" in sql]
+    assert len(altas) == 2
+    for sql in altas:
+        # El único UPDATE permitido es el no-op sobre la clave primaria.
+        assert "ON DUPLICATE KEY UPDATE carnet = carnet" in sql
+        assert "nombre" not in sql.split("ON DUPLICATE KEY UPDATE")[1]
+    assert resultado["estudiantes_creados"] == 1
+
+
 # --- POST /estado: mismas reglas de autorización que /sync ---------------
 
 def test_estado_con_api_key_de_otra_pc_da_403(client, monkeypatch):

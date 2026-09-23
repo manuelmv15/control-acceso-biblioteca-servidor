@@ -409,6 +409,20 @@ def limitar_escrituras_kiosko(request: Request, actor: dict = Depends(require_ki
     return actor
 
 
+def cobrar_escrituras_kiosko(request: Request, actor: dict, cantidad: int) -> None:
+    """Suma `cantidad` escrituras extra a la ventana de `limitar_escrituras_kiosko` para esta
+    credencial. `limitar_escrituras_kiosko` cuenta requests, pero un solo `POST /sync` puede dar
+    de alta muchos estudiantes; sin este cobro, el límite por minuto no acotaría cuántas fichas
+    puede crear una key filtrada. Se cobra después de procesar el request (no se rechaza el lote
+    en curso, para que un kiosko con muchas sesiones acumuladas sin red no quede bloqueado para
+    siempre) y el exceso frena los requests siguientes hasta que expire la ventana."""
+    if actor.get("role") == "admin" or cantidad <= 0:
+        return
+    clave = actor.get("sub") or _client_ip(request)
+    ahora = time.time()
+    _escrituras_kiosko.setdefault(clave, []).extend([ahora] * cantidad)
+
+
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest, request: Request, response: Response):
     # A diferencia de limitar_lecturas_estudiante/limitar_escrituras_kiosko, acá todavía no hay

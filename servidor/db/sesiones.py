@@ -3,7 +3,7 @@ from datetime import datetime
 
 from . import pcs as db_pcs
 from .connection import conexion
-from .estudiantes import upsert_desde_sesion
+from .estudiantes import asegurar_desde_sesion
 
 log = logging.getLogger("uvicorn.error")
 
@@ -16,17 +16,20 @@ def registrar_sync(payload, ip):
         db_pcs.upsert_conexion(cursor, payload.pc_id, payload.pc_nombre, ahora, ip)
 
         insertados = 0
+        estudiantes_creados = 0
         fecha_hoy = datetime.now().date().isoformat()
         for s in payload.sesiones:
             if s.carnet:
                 try:
-                    upsert_desde_sesion(
+                    asegurar_desde_sesion(
                         cursor, s.carnet, s.nombre, s.carrera, s.facultad,
                         s.sexo, s.fecha_nacimiento, fecha_hoy,
                     )
+                    if cursor.rowcount > 0:
+                        estudiantes_creados += 1
                 except Exception:
                     log.exception(
-                        "No se pudo actualizar el estudiante %s durante sync — "
+                        "No se pudo crear el estudiante %s durante sync — "
                         "se registra la sesión igual", s.carnet,
                     )
 
@@ -45,4 +48,9 @@ def registrar_sync(payload, ip):
                 insertados += 1
 
         conn.commit()
-        return {"recibidos": len(payload.sesiones), "insertados": insertados, "timestamp": ahora}
+        return {
+            "recibidos": len(payload.sesiones),
+            "insertados": insertados,
+            "estudiantes_creados": estudiantes_creados,
+            "timestamp": ahora,
+        }

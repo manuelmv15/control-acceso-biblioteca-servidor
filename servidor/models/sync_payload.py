@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from .sesion import Sesion
 from .tipos import PC_ID_PATTERN
 
-SYNC_MAX_SESIONES = int(os.environ.get("SYNC_MAX_SESIONES") or 500)
+SYNC_MAX_SESIONES = int(os.environ.get("SYNC_MAX_SESIONES") or 100)
 
 
 class SyncPayload(BaseModel):

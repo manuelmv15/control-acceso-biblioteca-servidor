@@ -2,7 +2,7 @@ from datetime import datetime
 
 from . import pcs as db_pcs
 from .connection import conexion
-from .estudiantes import upsert_desde_sesion
+from .estudiantes import asegurar_desde_sesion
 from .umbrales import UMBRAL_DISPONIBLE_MINUTOS
 
 
@@ -14,7 +14,7 @@ def actualizar_estado(payload):
 
         if payload.carnet:
             fecha_hoy = datetime.now().date().isoformat()
-            upsert_desde_sesion(
+            asegurar_desde_sesion(
                 conn, payload.carnet, payload.nombre, payload.carrera,
                 payload.facultad, payload.sexo,
                 payload.fecha_nacimiento, fecha_hoy,

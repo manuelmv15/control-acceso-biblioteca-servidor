@@ -87,7 +87,7 @@ uvicorn main:app --reload
 | `LOGIN_BLOQUEO_MINUTOS` | No | Default 15. Minutos de bloqueo tras exceder `LOGIN_MAX_INTENTOS`. |
 | `TRUSTED_PROXIES` | No | IPs separadas por coma de reverse proxies/túneles de confianza (p. ej. Cloudflare Tunnel) autorizados a fijar `X-Forwarded-For` con la IP real del cliente para el rate limiting de `/auth/login`. Vacío (default) = nunca se confía en el header, siempre se usa la IP de la conexión TCP directa. Solo hace falta si el servidor corre detrás de un proxy — si no, todas las conexiones legítimas compartirían la IP del proxy y un solo atacante podría bloquear a todos los administradores. |
 | `MAX_BODY_SIZE_BYTES` | No | Default 5 000 000 (5MB). Límite de tamaño de body para `POST`/`PUT`/`PATCH`. |
-| `SYNC_MAX_SESIONES` | No | Default 500. Máximo de sesiones por lote en `POST /sync`. |
+| `SYNC_MAX_SESIONES` | No | Default 100. Máximo de sesiones por lote en `POST /sync`. |
 | `ENABLE_API_DOCS` | No | Default deshabilitado. En `true`/`1`/`yes` habilita `/docs`, `/redoc` y `/openapi.json` (documentación interactiva de la API, sin autenticación). Dejar apagado en producción; solo activar para desarrollo local o debugging puntual. |
 | `TLS_CERT_PATH` / `TLS_KEY_PATH` | No (recomendado) | Rutas *dentro del contenedor* al certificado/clave del servidor. Vacías = uvicorn sirve HTTP plano. Ver sección **TLS** abajo. |
 | `TLS_CERTS_DIR` | No | Default `./certs`. Carpeta en el **host** que `docker-compose.prod.yml` monta en `/certs` (solo lectura) dentro del contenedor — ahí es donde deben estar los archivos que apuntan `TLS_CERT_PATH`/`TLS_KEY_PATH`. |

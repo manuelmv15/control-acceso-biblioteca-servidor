@@ -106,7 +106,7 @@ Auth mixta: el kiosko necesita leer/crear/actualizar por carnet (login, auto-reg
 
 **Sincronización idempotente (`db/sesiones.py::registrar_sync`).** Cada sesión del payload se inserta con `INSERT ... ON DUPLICATE KEY UPDATE`, donde `hora_fin`/`sincronizado`/`timestamp_sync` solo se sobrescriben si el nuevo `hora_fin` no es `NULL`. Esto permite reenviar la misma sesión (por su `id`, generado por el cliente) mientras sigue abierta, sin perder estado, y cerrarla cuando finalmente llega con `hora_fin`. Los fallos de upsert de estudiante se registran individualmente sin abortar el resto del lote.
 
-**Upsert no destructivo de estudiantes.** `db/estudiantes.py::upsert_desde_sesion` (usado también en `db/estado.py`) usa `COALESCE(VALUES(x), x)` para no pisar datos existentes con valores nulos entrantes — el kiosko puede enviar información parcial sin degradar el registro central.
+**`/sync` y `/estado` no editan estudiantes.** `db/estudiantes.py::asegurar_desde_sesion` (usado en `db/sesiones.py` y `db/estado.py`) solo crea la ficha si el carnet no existe, para cumplir la FK de `sesiones`; nunca modifica una existente. Editar datos es exclusivo de `PUT /estudiantes/{carnet}`, que tiene rate limit por request. En `/sync`, cada estudiante creado cuenta como una escritura más en `KIOSKO_MAX_ESCRITURAS_MIN`.
 
 **Umbrales de mantenimiento (`db/umbrales.py`).**
 - `< 300 h` → `"optimo"`

@@ -86,14 +86,19 @@ def eliminar(carnet):
             raise TieneSesionesRegistradas() from None
 
 
-def upsert_desde_sesion(conn, carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro):
+def asegurar_desde_sesion(conn, carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro):
+    """Crea el estudiante si todavía no existe, para que la sesión cumpla la FK.
+    Nunca modifica una ficha existente: /sync y /estado aceptan cientos de
+    carnets por minuto con la key de un kiosko, así que si pudieran editar
+    datos, una key filtrada bastaría para reescribir en masa a toda la
+    población estudiantil. Editar es trabajo de PUT /estudiantes/{carnet},
+    que tiene rate limit por request.
+
+    Se usa `ON DUPLICATE KEY UPDATE carnet = carnet` en vez de INSERT IGNORE
+    para no convertir en warnings otros errores (datos truncados, etc.). El
+    rowcount del cursor queda en 1 si se creó la ficha y en 0 si ya existía."""
     conn.execute("""
         INSERT INTO estudiantes (carnet, nombre, carrera, facultad, sexo, fecha_nacimiento, fecha_registro)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            nombre       = COALESCE(VALUES(nombre),       nombre),
-            carrera      = COALESCE(VALUES(carrera),      carrera),
-            facultad     = COALESCE(VALUES(facultad),     facultad),
-            sexo         = COALESCE(VALUES(sexo),         sexo),
-            fecha_nacimiento = COALESCE(VALUES(fecha_nacimiento), fecha_nacimiento)
+        ON DUPLICATE KEY UPDATE carnet = carnet
     """, (carnet, nombre, carrera, facultad, sexo, _normalizar_fecha_nacimiento(fecha_nacimiento), fecha_registro))
