@@ -35,9 +35,11 @@ def registrar_sync(payload, ip):
                     (id, pc_id, carnet, hora_inicio, hora_fin, fecha, sincronizado, timestamp_sync)
                 VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
                 ON DUPLICATE KEY UPDATE
-                    hora_fin       = IF(VALUES(hora_fin) IS NOT NULL, VALUES(hora_fin), hora_fin),
-                    sincronizado   = IF(VALUES(hora_fin) IS NOT NULL, 1, sincronizado),
-                    timestamp_sync = IF(VALUES(hora_fin) IS NOT NULL, VALUES(timestamp_sync), timestamp_sync)
+                    -- Si el id ya existe pero pertenece a otra PC, no se toca:
+                    -- una PC no puede cerrar ni alterar sesiones ajenas.
+                    hora_fin       = IF(pc_id = VALUES(pc_id) AND VALUES(hora_fin) IS NOT NULL, VALUES(hora_fin), hora_fin),
+                    sincronizado   = IF(pc_id = VALUES(pc_id) AND VALUES(hora_fin) IS NOT NULL, 1, sincronizado),
+                    timestamp_sync = IF(pc_id = VALUES(pc_id) AND VALUES(hora_fin) IS NOT NULL, VALUES(timestamp_sync), timestamp_sync)
             """, (s.id, s.pc_id, s.carnet, s.hora_inicio, s.hora_fin, s.fecha, ahora))
             if cursor.rowcount > 0:
                 insertados += 1

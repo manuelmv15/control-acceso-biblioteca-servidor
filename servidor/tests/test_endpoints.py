@@ -183,6 +183,25 @@ def test_sync_con_api_key_propia_funciona(client, monkeypatch):
     assert r.json() == {"ok": True, "insertados": 0}
 
 
+def test_sync_con_sesion_de_otra_pc_da_422(client, monkeypatch):
+    monkeypatch.setattr(auth_module.db_pcs, "obtener_api_key_hash", lambda pc_id: auth_module.hash_api_key("clave-pc01"))
+
+    def _no_deberia_llamarse(payload, ip):
+        raise AssertionError("registrar_sync no debe ejecutarse si hay sesiones de otra PC")
+
+    monkeypatch.setattr(db_sesiones, "registrar_sync", _no_deberia_llamarse)
+    sesion_ajena = {
+        "id": "s-1", "pc_id": "PC-02", "carnet": "AB12345",
+        "hora_inicio": "2026-01-01T10:00:00", "fecha": "2026-01-01",
+    }
+    r = client.post(
+        "/sync",
+        json={"pc_id": "PC-01", "sesiones": [sesion_ajena]},
+        headers={"X-Kiosk-Key": "clave-pc01", "X-PC-Id": "PC-01"},
+    )
+    assert r.status_code == 422
+
+
 # --- POST /estado: mismas reglas de autorización que /sync ---------------
 
 def test_estado_con_api_key_de_otra_pc_da_403(client, monkeypatch):
